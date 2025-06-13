@@ -1,0 +1,65 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    color: #333;
+}
+
+/* Baby Blue Navigation bar */
+nav {
+    background: #89CFF0;
+    padding: 1rem;
+    display: flex;
+    gap: 1rem;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+}
+
+/* Pastel Green Flash Messages */
+.flash {
+    padding: 1rem;
+    margin: 1rem;
+    border-radius: 4px;
+}
+
+.flash-success {
+    background: #B5EAD7;
+}
+
+.flash-danger {
+    background: #FFD1DC;
+}
+
+/* Baby Pink Buttons */
+button {
+    background: #FFD1DC;
+    border: none;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+button:hover {
+    opacity: 0.8;
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+th, td {
+    padding: 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background: #89CFF0;
+    color: white;
+}
