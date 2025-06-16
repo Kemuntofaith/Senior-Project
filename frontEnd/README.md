@@ -108,3 +108,6 @@ padding: 0.5rem 1rem → Adds internal spacing.
 
 ### 9. {% endblock %}
 this will close the {% block content %} section so that everything between {% block content %} and {% endblock %} is inserted into base.html.
+
+
+## **LETS TRY TO MAKE A DATABASE**
