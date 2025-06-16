@@ -39,7 +39,7 @@ i hope to get a soft, friendly appearance that would work well for applications.
 ## **TODAY I WORKED ON MY LOGIN PAGE**: 
  I intend to have a main html file where every other html file will connect. I started with the login and I will make the base last once ive defined everything else I could start with it  but I feel like I could miss something so we will make all other html templates first and finish with base so that we have a full list of templates and we just connect them at once (subject to schnage at any time)
 
-### 1.```python
+### 1.```python (not everything here is python but readme files are difficult to edit, so...)
  {% extends "base.html" %}
 ```
 This template will insert its content into base.html where {% block content %} is defined and will help avoid repeating header/footer/navigation code.
