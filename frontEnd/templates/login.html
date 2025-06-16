@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 2rem auto; background: #B5EAD7; padding: 2rem;">
+    <h2 style="color: #333;">Login</h2>
+    <form method="POST">
+        <div style="margin-bottom: 1rem;">
+            <label>Username:</label>
+            <input type="text" name="username" required style="width: 100%; padding: 0.5rem;">
+        </div>
+        <div style="margin-bottom: 1rem;">
+            <label>Password:</label>
+            <input type="password" name="password" required style="width: 100%; padding: 0.5rem;">
+        </div>
+        <button type="submit" style="background: #89CFF0; color: white; border: none; padding: 0.5rem 1rem;">Login</button>
+    </form>
+</div>
+{% endblock %}
