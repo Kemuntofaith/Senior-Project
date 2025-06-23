@@ -1,27 +1,22 @@
+<!-- backtoschool_app/templates/login.html -->
 {% extends "base.html" %}
 
 {% block content %}
-<div style="max-width: 500px; margin: 2rem auto; background: #B5EAD7; padding: 2rem;">
-    <h2 style="color: #333;">Login</h2>
-
-    {% if error %}
-    <div style="color: red; margin-bottom: 1rem;">{{ error }}</div>
-    {% endif %}
-
+<div class="card" style="max-width: 500px; margin: 2rem auto; background: #B5EAD7;">
+    <div class="card-header">Login</div>
     <form method="POST">
-        <div style="margin-bottom: 1rem;">
-            <label>Username:</label>
-            <input type="text" name="username" required style="width: 100%; padding: 0.5rem;">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required>
         </div>
-        <div style="margin-bottom: 1rem;">
-            <label>Password:</label>
-            <input type="password" name="password" required style="width: 100%; padding: 0.5rem;">
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
         </div>
-        <button type="submit" style="background: #89CFF0; color: white; border: none; padding: 0.5rem 1rem;">Login</button>
+        <button type="submit" class="btn">Login</button>
     </form>
-
-     <div style="margin-top: 1rem;">
-        <p> Don't Have An Account? <a href="/register/student">Register here</a></p>
-    </div> 
+    <div style="margin-top: 1rem;">
+        Don't have an account? <a href="/register/student" style="color: #89CFF0;">Register here</a>
+    </div>
 </div>
 {% endblock %}

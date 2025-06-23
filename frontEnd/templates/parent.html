@@ -1,21 +1,24 @@
-{% extends "base.html" %}  
+<!-- backtoschool_app/templates/parent/dashboard.html -->
+{% extends "base.html" %}
 
-{% block content %}  
-  <div style="background: #B5EAD7;">  <!-- Pastel green card -->  
-    <h3>Price Comparison</h3>  
-    <table>   
-      <tr>
-        <th>Item</th>
-        <th>Price (Retailer A)</th>
-        <th>Price (Retailer B)</th>
-      </tr>
-      {% for item in items %}
-        <tr>
-          <td>{{ item.name }}</td>
-          <td>{{ item.price_retailer1 }}</td>
-          <td>{{ item.price_retailer2 }}</td>
-        </tr>
-      {% endfor %}  
-    </table>  
-  </div>  
+{% block content %}
+<div class="card" style="background: #FFD1DC;">
+    <div class="card-header">School Requirements</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Max Quantity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in requirements %}
+            <tr>
+                <td>{{ item.item_name }}</td>
+                <td>{{ item.max_quantity if item.max_quantity else "No limit" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}
