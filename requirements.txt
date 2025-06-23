@@ -1,0 +1,6 @@
+# backtoschool_app/requirements.txt
+flask==2.3.2
+flask-login==0.6.2
+mysql-connector-python==8.0.33
+python-dotenv==1.0.0
+werkzeug==2.3.6  # For password hashing

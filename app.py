@@ -17,6 +17,25 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
+@login_manager.user_loader
+def load_user(user_id):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+    user_data = cursor.fetchone()
+    db.close()
+    
+    if user_data:
+        return User(
+            id=user_data['id'],
+            username=user_data['username'],
+            role=user_data['role'],
+            school_id=user_data['school_id'],
+            is_verified=user_data['is_verified'],
+            is_active=user_data['is_active']
+        )
+    return None
+
 class User(UserMixin):
     def __init__(self, id, username, role, school_id=None, is_verified=False, is_active=True):
         self.id = id
