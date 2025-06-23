@@ -19,13 +19,14 @@ login_manager.login_view = "login"  # Redirect to login if unauthorized
 
 # Mock User Class (for authentication)
 class User(UserMixin):
-    def __init__(self, id, username, role):
+    def __init__(self, id, username, role, school_id=None):
         self.id = id
         self.username = username
         self.role = role
+        self.school_id = school_id
 
 # Database Connection
-def get_db_connection():
+def get_db():
     return mysql.connector.connect(
         host=os.getenv("DB_HOST"),
         user=os.getenv("DB_USER"),
@@ -48,13 +49,20 @@ def load_user(user_id):
 # Routes
 @app.route("/")
 def home():
-    return render_template("login.html")
+    return redirect(url_for("login"))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]  # In real apps, use hashed passwords!
+        username = request.form.get("username")
+        password = request.form.get("password")  # In real apps, use hashed passwords!
+        
+         
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+        user_data = cursor.fetchone()
+        db.close()
         
         # Check user (mock validation)
         user = next((u for u in users.values() if u.username == username), None)
