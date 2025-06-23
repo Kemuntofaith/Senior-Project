@@ -63,7 +63,7 @@ def login():
         cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
         user_data = cursor.fetchone()
         db.close()
-        
+
         # Check user (mock validation)
         user = next((u for u in users.values() if u.username == username), None)
         
@@ -121,4 +121,4 @@ def logout():
     return redirect(url_for("login"))
 
 if __name__ == "__main__":
-    app.run(debug=True)  # Run in development mode
+    app.run(debug=True)  # Run in development model
