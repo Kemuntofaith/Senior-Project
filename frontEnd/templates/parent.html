@@ -1,0 +1,12 @@
+{% extends "base.html" %}  
+
+{% block content %}  
+  <div style="background: #B5EAD7;">  <!-- Pastel green card -->  
+    <h3>Price Comparison</h3>  
+    <table>  
+      {% for item in items %}  
+        <tr><td>{{ item.name }}</td><td>{{ item.price }}</td></tr>  
+      {% endfor %}  
+    </table>  
+  </div>  
+{% endblock %}
