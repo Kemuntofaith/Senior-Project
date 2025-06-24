@@ -314,15 +314,14 @@ def parent_cart():
         flash("Item added to cart", "success")
     
         def check_compliance(cart_id, school_id):
-            """Validate all items in cart against school rules"""
-            db = get_db()
-            cursor = db.cursor(dictionary=True)
+           db = get_db()
+           cursor = db.cursor(dictionary=True)
     
         # Get cart items
         cursor.execute("""
             SELECT ci.product_id, ci.quantity, p.item_name 
             FROM cart_items ci
-            JOIN products p ON ci.product_id = p.id
+           JOIN products p ON ci.product_id = p.id
             WHERE ci.cart_id = %s
         """, (cart_id,))
         items = cursor.fetchall()
@@ -337,8 +336,8 @@ def parent_cart():
             """, (item['item_name'], school_id))
             rule = cursor.fetchone()
         
-        # Update compliance status
-        compliant = rule and rule['allowed'] and (not rule['max_quantity'] or item['quantity'] <= rule['max_quantity'])
+         Update compliance status
+        #compliant = rule and rule['allowed'] and (not rule['max_quantity'] or item['quantity'] <= rule['max_quantity'])
         cursor.execute("""
             UPDATE cart_items 
             SET is_compliant = %s 
