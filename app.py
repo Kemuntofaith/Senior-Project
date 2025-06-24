@@ -53,6 +53,44 @@ def get_db():
         database=os.getenv("DB_NAME", "backtoschool")
     )
 
+def check_compliance(cart_id, school_id):
+    """Validate all items in cart against school rules"""
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    
+    # Get cart items
+    cursor.execute("""
+        SELECT ci.product_id, ci.quantity, p.item_name 
+        FROM cart_items ci
+        JOIN products p ON ci.product_id = p.id
+        WHERE ci.cart_id = %s
+    """, (cart_id,))
+    items = cursor.fetchall()
+    
+    # Check each item against school rules
+    all_compliant = True
+    for item in items:
+        cursor.execute("""
+            SELECT allowed, max_quantity 
+            FROM school_items 
+            WHERE item_name = %s AND school_id = %s
+        """, (item['item_name'], school_id))
+        rule = cursor.fetchone()
+        
+        # Update compliance status
+        compliant = rule and rule['allowed'] and (not rule['max_quantity'] or item['quantity'] <= rule['max_quantity'])
+        cursor.execute("""
+            UPDATE cart_items 
+            SET is_compliant = %s 
+            WHERE cart_id = %s AND product_id = %s
+        """, (compliant, cart_id, item['product_id']))
+        
+        if not compliant:
+            all_compliant = False
+    
+    db.commit()
+    db.close()
+    return all_compliant
 def check_account_status(user_id):
     """Check if account is expired (4 years)"""
     db = get_db()
@@ -312,45 +350,7 @@ def parent_cart():
         """, (cart_id, product_id, quantity, quantity))
         db.commit()
         flash("Item added to cart", "success")
-    
-        def check_compliance(cart_id, school_id):
-           db = get_db()
-           cursor = db.cursor(dictionary=True)
-    
-        # Get cart items
-        cursor.execute("""
-            SELECT ci.product_id, ci.quantity, p.item_name 
-            FROM cart_items ci
-           JOIN products p ON ci.product_id = p.id
-            WHERE ci.cart_id = %s
-        """, (cart_id,))
-        items = cursor.fetchall()
-    
-        # Check each item against school rules
-        all_compliant = True
-        for item in items:
-            cursor.execute("""
-                SELECT allowed, max_quantity 
-                FROM school_items 
-                WHERE item_name = %s AND school_id = %s
-            """, (item['item_name'], school_id))
-            rule = cursor.fetchone()
         
-         Update compliance status
-        #compliant = rule and rule['allowed'] and (not rule['max_quantity'] or item['quantity'] <= rule['max_quantity'])
-        cursor.execute("""
-            UPDATE cart_items 
-            SET is_compliant = %s 
-            WHERE cart_id = %s AND product_id = %s
-        """, (compliant, cart_id, item['product_id']))
-        
-        if not compliant:
-            all_compliant = False
-    
-    db.commit()
-    db.close()
-    return all_compliant
-
     cursor.execute("""
         SELECT ci.*, p.item_name, p.price, u.username as retailer
         FROM cart_items ci
