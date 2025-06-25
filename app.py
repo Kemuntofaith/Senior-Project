@@ -6,13 +6,11 @@ import mysql.connector
 from dotenv import load_dotenv
 import os
 
-# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
 
-# Configure Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
@@ -338,7 +336,7 @@ def school_requirements():
 @login_required
 def manage_students():
     if current_user.role != "school":
-        flash("Access denied", "danger")
+        flash("Access denied")
         return redirect(url_for("login"))
 
     db = get_db()
@@ -362,7 +360,7 @@ def manage_students():
 @login_required
 def update_student_status(student_id, action):
     if current_user.role != "school":
-        flash("Access denied", "danger")
+        flash("Access denied")
         return redirect(url_for("login"))
 
     db = get_db()
@@ -400,11 +398,56 @@ def update_student_status(student_id, action):
     
     return redirect(url_for("manage_students"))
 
+@app.route("/school/retailers")
+@login_required
+def retailer_approvals():
+    if current_user.role != "school":
+        flash("Access denied")
+        return redirect(url_for("login"))
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT u.id, u.username, r.business_name, u.created_at
+        FROM users u
+        JOIN retailer_profiles r ON u.id = r.user_id
+        WHERE u.role = 'retailer' AND u.is_approved = FALSE
+        ORDER BY u.created_at
+    """)
+    pending_retailers = cursor.fetchall()
+    db.close()
+    return render_template("school/retailer_approvals.html",
+        retailers=pending_retailers
+    )
+
+@app.route("/school/approve_retailer/<int:retailer_id>")
+@login_required
+def approve_retailer(retailer_id):
+    if current_user.role != "school":
+        flash("Access denied")
+        return redirect(url_for("login"))
+
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute("""
+            UPDATE users SET is_approved = TRUE 
+            WHERE id = %s AND role = 'retailer'
+        """, (retailer_id,))
+        db.commit()
+        flash("Retailer approved successfully", "success")
+    except Exception as e:
+        db.rollback()
+        flash(f"Approval failed: {str(e)}", "danger")
+    finally:
+        db.close()
+    return redirect(url_for("retailer_approvals"))
+
 @app.route("/parent/dashboard")
 @login_required
 def parent_dashboard():
     if current_user.role != "parent":
-        flash("Access denied", "danger")
+        flash("Access denied")
         return redirect(url_for("login"))
     
     if not current_user.is_verified:
@@ -412,7 +455,7 @@ def parent_dashboard():
         return redirect(url_for("login"))
     
     if not current_user.is_active:
-        flash("Account deactivated. Contact your school.", "danger")
+        flash("Account deactivated. Contact your school.")
         return redirect(url_for("login"))
     
     db = get_db()
@@ -424,9 +467,18 @@ def parent_dashboard():
         WHERE school_id = %s AND allowed = TRUE
     """, (current_user.school_id,))
     requirements = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT message, created_at 
+        FROM notifications 
+        WHERE user_id = %s
+        ORDER BY created_at DESC
+        LIMIT 5
+    """, (current_user.id,))
+    notifications = cursor.fetchall()
     
     db.close()
-    return render_template("parent/dashboard.html", requirements=requirements)
+    return render_template("parent/dashboard.html", requirements=requirements, notifications=notifications)
 
 @app.route("/parent/shop")
 @login_required
@@ -439,13 +491,14 @@ def parent_shop():
     cursor = db.cursor(dictionary=True)
     
     cursor.execute("""
-        SELECT p.id, p.item_name, p.price, u.username as retailer
+        SELECT p.id, p.item_name, p.price, u.username as retailer, p.stock
         FROM products p
         JOIN users u ON p.retailer_id = u.id
         WHERE p.item_name IN (
             SELECT item_name FROM school_items 
             WHERE school_id = %s AND allowed = TRUE
-        )
+        ) AND u.is_approved = TRUE AND p.stock > 0
+        ORDER BY p.item_name, p.price
     """, (current_user.school_id,))
     products = cursor.fetchall()
     
@@ -456,7 +509,8 @@ def parent_shop():
         price_comparison[product['item_name']].append({
             'retailer': product['retailer'],
             'price': product['price'],
-            'id': product['id']
+            'id': product['id'],
+            'stock': product['stock']
         })
     
     db.close()
@@ -475,20 +529,31 @@ def parent_cart():
     if not cart:
         cursor.execute("INSERT INTO carts (user_id) VALUES (%s)", (current_user.id,))
         cart_id = cursor.lastrowid
+        db.commit()
     else:
         cart_id = cart['id']
-    
+
     if request.method == "POST":
         product_id = request.form.get("product_id")
         quantity = int(request.form.get("quantity", 1))
         
-        cursor.execute("""
-            INSERT INTO cart_items (cart_id, product_id, quantity)
-            VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE quantity = quantity + %s
-        """, (cart_id, product_id, quantity, quantity))
-        db.commit()
-        flash("Item added to cart", "success")
+        try:
+            cursor.execute("SELECT stock FROM products WHERE id = %s", (product_id,))
+            product = cursor.fetchone()
+            
+            if product and product['stock'] >= quantity:
+                cursor.execute("""
+                    INSERT INTO cart_items (cart_id, product_id, quantity)
+                    VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
+                """, (cart_id, product_id, quantity))
+                db.commit()
+                flash("Item added to cart", "success")
+            else:
+                flash("Insufficient stock", "danger")
+        except Exception as e:
+            db.rollback()
+            flash(f"Error: {str(e)}", "danger")
 
     cursor.execute("""
         SELECT ci.*, p.item_name, p.price, u.username as retailer
@@ -508,6 +573,28 @@ def parent_cart():
         is_compliant=is_compliant,
         total=total
     )
+
+@app.route("/parent/cart/remove/<int:product_id>")
+@login_required
+def remove_from_cart(product_id):
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute("""
+            DELETE FROM cart_items 
+            WHERE cart_id = (SELECT id FROM carts WHERE user_id = %s) 
+            AND product_id = %s
+        """, (current_user.id, product_id))
+        db.commit()
+        flash("Item removed from cart", "success")
+    except Exception as e:
+        db.rollback()
+        flash(f"Error: {str(e)}", "danger")
+    finally:
+        db.close()
+    
+    return redirect(url_for("parent_cart"))
 
 @app.route("/parent/wallet", methods=["GET", "POST"])
 @login_required
@@ -545,9 +632,17 @@ def parent_wallet():
                 """, (total, current_user.id))
                 
                 cursor.execute("""
-                    INSERT INTO orders (user_id, cart_id, total)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO orders (user_id, cart_id, total, status)
+                    VALUES (%s, %s, %s, 'pending')
                 """, (current_user.id, cart['id'], total))
+                order_id = cursor.lastrowid
+
+                cursor.execute("""
+                        UPDATE products p
+                        JOIN cart_items ci ON p.id = ci.product_id
+                        SET p.stock = p.stock - ci.quantity
+                        WHERE ci.cart_id = %s
+                    """, (cart['id'],))
                 
                 cursor.execute("DELETE FROM cart_items WHERE cart_id = %s", (cart['id'],))
                 cursor.execute("DELETE FROM carts WHERE id = %s", (cart['id'],))
@@ -555,81 +650,69 @@ def parent_wallet():
                 cursor.execute("""
                     INSERT INTO notifications (user_id, message)
                     VALUES (%s, %s)
-                """, (current_user.id, f"Order placed! Total: Ksh {total}"))
-                
+                """, (current_user.id, f"Order placed! #{order_id}Total: Ksh {total:.2f}"))
+
                 db.commit()
-                flash("Payment successful!", "success")
-            else:
-                flash("Insufficient funds", "danger")
-    
-    db.close()
-    return render_template("parent/wallet.html", 
-        balance=balance
-    )
-
-@app.route("/school/requirements", methods=["GET", "POST"])
-@login_required
-def school_requirements():
-    if current_user.role != "school":
-        flash("Access denied", "danger")
-        return redirect(url_for("login"))
-
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-    
-    if request.method == "POST":
-        item_name = request.form.get("item_name")
-        allowed = True if request.form.get("allowed") == "on" else False
-        max_quantity = request.form.get("max_quantity")
-        
-        try:
-            cursor.execute("""
-                INSERT INTO school_items (school_id, item_name, allowed, max_quantity)
-                VALUES (%s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE allowed = VALUES(allowed), max_quantity = VALUES(max_quantity)
-            """, (current_user.id, item_name, allowed, max_quantity))
-            
-            db.commit()
-            flash("Requirements updated successfully!", "success")
-        except Exception as e:
-            db.rollback()
-            flash(f"Error: {str(e)}", "danger")
+                flash("Payment successful! Order placed.", "success")
+                return redirect(url_for("parent_dashboard"))
+        else:
+            flash("Insufficient funds or no valid items")
     
     cursor.execute("""
-        SELECT item_name, allowed, max_quantity 
-        FROM school_items 
-        WHERE school_id = %s
+        SELECT id, total, created_at 
+        FROM orders 
+        WHERE user_id = %s
+        ORDER BY created_at DESC
+        LIMIT 5
     """, (current_user.id,))
-    requirements = cursor.fetchall()
-    
-    db.close()
-    return render_template("school/requirements.html",
-        requirements=requirements
-    )
+    transactions = cursor.fetchall()
 
+    db.close()
+    return render_template("parent/wallet.html", 
+        balance=balance,transactions=transactions
+    )
+           
 @app.route("/retailer")
 @login_required
 def retailer_dashboard():
     if current_user.role != "retailer":
         flash("Access denied", "danger")
         return redirect(url_for("login"))
+    
+    if not current_user.is_approved:
+        flash("Account pending approval", "danger")
+        return redirect(url_for("login"))
 
     db = get_db()
     cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT COUNT(*) as order_count, SUM(o.total) as revenue
+        FROM orders o
+        JOIN carts c ON o.cart_id = c.id
+        JOIN cart_items ci ON c.id = ci.cart_id
+        JOIN products p ON ci.product_id = p.id
+        WHERE p.retailer_id = %s
+    """, (current_user.id,))
+    sales = cursor.fetchone()
     
     cursor.execute("""
-        SELECT id, item_name, price, stock 
+        SELECT item_name, stock 
         FROM products 
-        WHERE retailer_id = %s
+        WHERE retailer_id = %s AND stock < 5
+        ORDER BY stock
+        LIMIT 5
     """, (current_user.id,))
-    products = cursor.fetchall()
+    low_stock = cursor.fetchall()
     
     db.close()
-    return render_template("retailer/inventory.html",
-        products=products
+    return render_template("retailer/dashboard.html",
+        order_count=sales['order_count'] or 0,
+        revenue=sales['revenue'] or 0,
+        low_stock=low_stock
     )
 
-@app.route("/retailer/inventory", methods=["POST"])
+@app.route("/retailer/inventory", methods=["GET", "POST"])
 @login_required
 def update_inventory():
     if current_user.role != "retailer":
@@ -641,7 +724,7 @@ def update_inventory():
     stock = int(request.form.get("stock"))
     
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(dictionary=True)
     
     try:
         cursor.execute("""
@@ -655,10 +738,150 @@ def update_inventory():
     except Exception as e:
         db.rollback()
         flash(f"Error: {str(e)}", "danger")
+
+    cursor.execute("""
+        SELECT id, item_name, price, stock
+        FROM products
+        WHERE retailer_id = %s
+        ORDER BY item_name
+    """, (current_user.id,))
+    inventory = cursor.fetchall()
+    
+    db.close()
+    return render_template("retailer/inventory.html",
+        inventory=inventory
+    )
+
+@app.route("/retailer/orders")
+@login_required
+def retailer_orders():
+    if current_user.role != "retailer":
+        flash("Access denied", "danger")
+        return redirect(url_for("login"))
+    
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    
+    cursor.execute("""
+        SELECT o.id, o.total, o.status, o.created_at, u.username as customer
+        FROM orders o
+        JOIN carts c ON o.cart_id = c.id
+        JOIN users u ON c.user_id = u.id
+        JOIN cart_items ci ON c.id = ci.cart_id
+        JOIN products p ON ci.product_id = p.id
+        WHERE p.retailer_id = %s
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+    """, (current_user.id,))
+    orders = cursor.fetchall()
+    
+    db.close()
+    return render_template("retailer/orders.html",
+        orders=orders
+    )
+
+@app.route("/retailer/order/<int:order_id>/<status>")
+@login_required
+def update_order_status(order_id, status):
+    if current_user.role != "retailer":
+        flash("Access denied", "danger")
+        return redirect(url_for("login"))
+    
+    if status not in ['pending', 'shipped', 'delivered']:
+        flash("Invalid status", "danger")
+        return redirect(url_for("retailer_orders"))
+    
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute("""
+            UPDATE orders 
+            SET status = %s 
+            WHERE id = %s AND id IN (
+                SELECT o.id
+                FROM orders o
+                JOIN carts c ON o.cart_id = c.id
+                JOIN cart_items ci ON c.id = ci.cart_id
+                JOIN products p ON ci.product_id = p.id
+                WHERE p.retailer_id = %s
+            )
+        """, (status, order_id, current_user.id))
+        
+        if cursor.rowcount == 0:
+            flash("Order not found or not authorized", "danger")
+        else:
+            db.commit()
+            flash(f"Order status updated to {status}", "success")
+    except Exception as e:
+        db.rollback()
+        flash(f"Error: {str(e)}", "danger")
     finally:
         db.close()
     
-    return redirect(url_for("retailer_dashboard"))
+    return redirect(url_for("retailer_orders"))
+
+@app.route("/admin/approve_school/<int:school_id>")
+@login_required
+def approve_school(school_id):
+    if current_user.role != "admin":
+        flash("Access denied", "danger")
+        return redirect(url_for("login"))
+    
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute("""
+            UPDATE users SET is_verified = TRUE 
+            WHERE id = %s AND role = 'school'
+        """, (school_id,))
+        db.commit()
+        flash("School approved successfully", "success")
+    except Exception as e:
+        db.rollback()
+        flash(f"Approval failed: {str(e)}", "danger")
+    finally:
+        db.close()
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin")
+@login_required
+def admin_dashboard():
+    if current_user.role != "admin":
+        flash("Access denied", "danger")
+        return redirect(url_for("login"))
+    
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    
+    cursor.execute("""
+        SELECT id, username, created_at
+        FROM users
+        WHERE role = 'school' AND is_verified = FALSE
+        ORDER BY created_at
+    """)
+    pending_schools = cursor.fetchall()
+ 
+    cursor.execute("SELECT COUNT(*) as user_count FROM users")
+    user_count = cursor.fetchone()['user_count']
+    
+    cursor.execute("SELECT COUNT(*) as school_count FROM users WHERE role = 'school'")
+    school_count = cursor.fetchone()['school_count']
+    
+    db.close()
+    return render_template("admin/dashboard.html",
+        pending_schools=pending_schools,
+        user_count=user_count,
+        school_count=school_count
+    )
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("errors/404.html"), 404
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template("errors/500.html"), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
