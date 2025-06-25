@@ -1,5 +1,5 @@
 # backtoschool_app/app.py
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime, timedelta
 import mysql.connector
@@ -37,13 +37,14 @@ def load_user(user_id):
     return None
 
 class User(UserMixin):
-    def __init__(self, id, username, role, school_id=None, is_verified=False, is_active=True):
+    def __init__(self, id, username, role, school_id=None, is_verified=False, is_active=True, is_approved=False):
         self.id = id
         self.username = username
         self.role = role
         self.school_id = school_id
         self.is_verified = is_verified
         self.is_active = is_active
+        self.is_apprroved = is_approved
 
 def get_db():
     return mysql.connector.connect(
@@ -138,7 +139,7 @@ def register_student():
             return redirect(url_for("login"))
         except Exception as e:
             db.rollback()
-            flash(str(e), "danger")
+            flash(f"Registration error: {str(e)}", "danger")
         finally:
             db.close()
     return render_template("register_student.html")
@@ -163,7 +164,7 @@ def register_school():
             return redirect(url_for("login"))
         except Exception as e:
             db.rollback()
-            flash(str(e), "danger")
+            flash(f"Registration error: {str(e)}", "danger")
         finally:
             db.close()
     return render_template("register_school.html")
@@ -181,19 +182,20 @@ def register_retailer():
             cursor.execute("""
                 INSERT INTO users (username, password, role, is_approved)
                 VALUES (%s, %s, 'retailer', FALSE)
-            """, (username, password))            
+            """, (username, password))
 
+            retailer_id = cursor.lastrowid
             cursor.execute("""
                 INSERT INTO retailer_profiles (user_id, business_name)
                 VALUES (%s, %s)
-            """, (cursor.lastrowid, business_name))
+            """, (retailer_id, business_name))
             
             db.commit()
             flash("Retailer registration submitted for school approval", "success")
             return redirect(url_for("login"))
         except Exception as e:
             db.rollback()
-            flash(str(e), "danger")
+            flash(f"Registration error: {str(e)}", "danger")
         finally:
             db.close()
     return render_template("register_retailer.html")
@@ -213,19 +215,15 @@ def login():
         if user_data:
             if password == user_data['password']:
                 if user_data['role'] == 'school' and not user_data['is_verified']:
-                    flash("School account pending admin approval", "danger")
+                    flash("School account pending admin approval")
                     return redirect(url_for("login"))
                     
                 if user_data['role'] == 'retailer' and not user_data['is_approved']:
-                    flash("Retailer account pending school approval", "danger")
-                    return redirect(url_for("login"))
-            
-                if user_data['role'] == 'retailer' and not user_data['is_verified']:
-                    flash("Retailer account pending admin approval", "danger")
+                    flash("Retailer account pending school approval")
                     return redirect(url_for("login"))
                 
                 if user_data['role'] == 'parent' and not user_data['is_verified']:
-                    flash("Account pending school approval", "danger")
+                    flash("Account pending school approval")
                     return redirect(url_for("login"))
                 
                 if not user_data['is_active']:
@@ -233,7 +231,7 @@ def login():
                     return redirect(url_for("login"))
                 
                 if user_data['role'] == 'parent' and not check_account_status(user_data['id']):
-                    flash("Account expired after 4 years. Contact school for reactivation.", "danger")
+                    flash("Account expired after 4 years. Contact school for reactivation.")
                     return redirect(url_for("login"))
                 
                 user = User(
@@ -242,7 +240,8 @@ def login():
                     role=user_data['role'],
                     school_id=user_data['school_id'],
                     is_verified=user_data['is_verified'],
-                    is_active=user_data['is_active']
+                    is_active=user_data['is_active'],
+                    is_approved=user_data['is_approved']
                 )
                 login_user(user)
                 flash("Login successful", "success")
@@ -264,6 +263,77 @@ def logout():
     flash("Logged out successfully", "success")
     return redirect(url_for("login"))
 
+@app.route("/school")
+@login_required
+def school_dashboard():
+    if current_user.role != "school":
+        flash("Access denied", "danger")
+        return redirect(url_for("login"))
+    
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    
+    cursor.execute("""
+        SELECT COUNT(*) as pending_students 
+        FROM users 
+        WHERE school_id = %s AND role = 'parent' AND is_verified = FALSE
+    """, (current_user.id,))
+    pending_students = cursor.fetchone()['pending_students']
+
+    cursor.execute("""
+        SELECT COUNT(*) as pending_retailers
+        FROM users u
+        JOIN retailer_profiles r ON u.id = r.user_id
+        WHERE u.role = 'retailer' AND u.is_approved = FALSE
+    """)
+    pending_retailers = cursor.fetchone()['pending_retailers']
+    
+    db.close()
+    return render_template("school/dashboard.html",
+        pending_students=pending_students,
+        pending_retailers=pending_retailers
+    )
+
+@app.route("/school/requirements", methods=["GET", "POST"])
+@login_required
+def school_requirements():
+    if current_user.role != "school":
+        flash("Access denied", "danger")
+        return redirect(url_for("login"))
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    
+    if request.method == "POST":
+        item_name = request.form.get("item_name")
+        allowed = True if request.form.get("allowed") == "on" else False
+        max_quantity = request.form.get("max_quantity")
+        
+        try:
+            cursor.execute("""
+                INSERT INTO school_items (school_id, item_name, allowed, max_quantity)
+                VALUES (%s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE allowed = VALUES(allowed), max_quantity = VALUES(max_quantity)
+            """, (current_user.id, item_name, allowed, max_quantity))
+            
+            db.commit()
+            flash("Requirements updated successfully!", "success")
+        except Exception as e:
+            db.rollback()
+            flash(f"Error updating requirements: {str(e)}", "danger")
+    
+    cursor.execute("""
+        SELECT item_name, allowed, max_quantity 
+        FROM school_items 
+        WHERE school_id = %s
+    """, (current_user.id,))
+    requirements = cursor.fetchall()
+    
+    db.close()
+    return render_template("school/requirements.html",
+        requirements=requirements
+    )
+
 @app.route("/school/students")
 @login_required
 def manage_students():
@@ -278,6 +348,7 @@ def manage_students():
         SELECT id, username, admission_number, is_verified, is_active, created_at
         FROM users 
         WHERE school_id = %s AND role = 'parent'
+        ORDER BY is_verified, created_at DESC
     """, (current_user.id,))
     students = cursor.fetchall()
     
@@ -323,7 +394,7 @@ def update_student_status(student_id, action):
         flash(message, "success")
     except Exception as e:
         db.rollback()
-        flash(str(e), "danger")
+        flash(F"Error: {str(e)}", "danger")
     finally:
         db.close()
     
