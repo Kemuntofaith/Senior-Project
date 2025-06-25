@@ -81,16 +81,15 @@ CREATE TABLE registration_codes (
     used BOOLEAN DEFAULT FALSE
 );
 
--- Initial admin and school
 INSERT INTO users (username, password, role) VALUES 
 ('admin', 'admin123', 'admin'),
 ('school1', 'school123', 'school');
 
--- Add is_approved field for retailers
-ALTER TABLE users 
-ADD COLUMN is_approved BOOLEAN DEFAULT FALSE;
-
--- Insert sample registration codes (in production, generate these securely)
 INSERT INTO registration_codes (code, role) VALUES
 ('SCHOOL-CODE-123', 'school'),
 ('RETAILER-CODE-456', 'retailer');
+
+ALTER TABLE users
+ADD COLUMN is_verified BOOLEAN DEFAULT FALSE,
+ADD COLUMN is_active BOOLEAN DEFAULT TRUE,
+ADD COLUMN is_approved BOOLEAN DEFAULT FALSE;
