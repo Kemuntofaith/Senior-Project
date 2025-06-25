@@ -78,3 +78,20 @@ CREATE TABLE notifications (
 INSERT INTO users (username, password, role) VALUES 
 ('admin', 'admin123', 'admin'),
 ('school1', 'school123', 'school');
+
+-- Add is_approved field for retailers
+ALTER TABLE users 
+ADD COLUMN is_approved BOOLEAN DEFAULT FALSE;
+
+-- Create registration codes table for schools
+CREATE TABLE registration_codes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    role ENUM('school', 'retailer') NOT NULL,
+    used BOOLEAN DEFAULT FALSE
+);
+
+-- Insert sample registration codes (in production, generate these securely)
+INSERT INTO registration_codes (code, role) VALUES
+('SCHOOL-CODE-123', 'school'),
+('RETAILER-CODE-456', 'retailer');
