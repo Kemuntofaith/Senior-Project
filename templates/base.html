@@ -8,14 +8,19 @@
 </head>
 <body>
     <nav style="background: #89CFF0; padding: 1rem; color: white;">
-        <a href="/" style="color: white; text-decoration: none;">Home</a>
-        {% if current_user.is_authenticated %}
-            <a href="/logout" style="color: white; text-decoration: none; margin-left: 1rem;">Logout</a>
-        {% else %}
-            <a href="/login" style="color: white; text-decoration: none; margin-left: 1rem;">Login</a>
-            <a href="/register/student" style="color: white; text-decoration: none; margin-left: 1rem;">Register</a>
-        {% endif %}
-    </nav>
+    <a href="/" style="color: white; text-decoration: none;">Home</a>
+    {% if current_user.is_authenticated %}
+        <a href="/logout" style="color: white; text-decoration: none; margin-left: 1rem;">Logout</a>
+    {% else %}
+        <a href="/login" style="color: white; text-decoration: none; margin-left: 1rem;">Login</a>
+        <div style="display: inline-block; margin-left: 1rem;">
+            <span style="color: white;">Register as: </span>
+            <a href="/register/student" style="color: white; text-decoration: none;">Student</a> |
+            <a href="/register/school" style="color: white; text-decoration: none;">School</a> |
+            <a href="/register/retailer" style="color: white; text-decoration: none;">Retailer</a>
+        </div>
+    {% endif %}
+</nav>
 
     <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
