@@ -30,7 +30,8 @@ def load_user(user_id):
             role=user_data['role'],
             school_id=user_data['school_id'],
             is_verified=user_data['is_verified'],
-            is_active=user_data['is_active']
+            is_active=user_data['is_active'],
+            is_approved=user_data['is_approved']
         )
     return None
 
