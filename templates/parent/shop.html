@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card" style="background: #B5EAD7;">
+    <div class="card-header">Price Comparison</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Prices</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item, options in price_comparison.items() %}
+            <tr>
+                <td>{{ item }}</td>
+                <td>
+                    {% for option in options %}
+                    <div>{{ option.retailer }}: Ksh {{ option.price }}</div>
+                    {% endfor %}
+                </td>
+                <td>
+                    <form method="POST" action="{{ url_for('parent_cart') }}" style="display: flex; gap: 0.5rem;">
+                        <input type="hidden" name="product_id" value="{{ options[0].id }}">
+                        <input type="number" name="quantity" value="1" min="1" style="width: 50px;">
+                        <button type="submit" class="btn-pink">Add</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

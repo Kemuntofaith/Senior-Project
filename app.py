@@ -50,7 +50,7 @@ def get_db():
         host=os.getenv("DB_HOST", "localhost"),
         user=os.getenv("DB_USER", "root"),
         password=os.getenv("DB_PASSWORD", ""),
-        database=os.getenv("DB_NAME", "backtoschool")
+        database=os.getenv("DB_NAME", "back2school")
     )
 
 def check_compliance(cart_id, school_id):
@@ -91,6 +91,7 @@ def check_compliance(cart_id, school_id):
     db.commit()
     db.close()
     return all_compliant
+
 def check_account_status(user_id):
     """Check if account is expired (4 years)"""
     db = get_db()
@@ -350,7 +351,7 @@ def parent_cart():
         """, (cart_id, product_id, quantity, quantity))
         db.commit()
         flash("Item added to cart", "success")
-        
+
     cursor.execute("""
         SELECT ci.*, p.item_name, p.price, u.username as retailer
         FROM cart_items ci
