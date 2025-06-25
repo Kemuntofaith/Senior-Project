@@ -146,7 +146,6 @@ def register_student():
 @app.route("/register/school", methods=["GET", "POST"])
 def register_school():
     if request.method == "POST":
-        code = request.form.get("code")
         username = request.form.get("username")
         password = request.form.get("password")
         school_name = request.form.get("school_name")
@@ -154,30 +153,13 @@ def register_school():
         db = get_db()
         cursor = db.cursor(dictionary=True)
         try:
-            # Verify registration code
             cursor.execute("""
-                SELECT id FROM registration_codes 
-                WHERE code = %s AND role = 'school' AND used = FALSE
-            """, (code,))
-            code_record = cursor.fetchone()
-            
-            if not code_record:
-                flash("Invalid or used registration code", "danger")
-                return redirect(url_for("register_school"))
-
-            # Create school account
-            cursor.execute("""
-                INSERT INTO users (username, password, role, is_verified, is_active)
-                VALUES (%s, %s, 'school', TRUE, TRUE)
+                INSERT INTO users (username, password, role, is_verified)
+                VALUES (%s, %s, 'school', FALSE)
             """, (username, password))
             
-            # Mark code as used
-            cursor.execute("""
-                UPDATE registration_codes SET used = TRUE WHERE id = %s
-            """, (code_record['id'],))
-            
             db.commit()
-            flash("School registration successful! You can now login.", "success")
+            flash("School registration submitted for admin approval", "success")
             return redirect(url_for("login"))
         except Exception as e:
             db.rollback()
@@ -189,7 +171,6 @@ def register_school():
 @app.route("/register/retailer", methods=["GET", "POST"])
 def register_retailer():
     if request.method == "POST":
-        code = request.form.get("code")
         username = request.form.get("username")
         password = request.form.get("password")
         business_name = request.form.get("business_name")
@@ -197,30 +178,18 @@ def register_retailer():
         db = get_db()
         cursor = db.cursor(dictionary=True)
         try:
-            # Verify registration code
             cursor.execute("""
-                SELECT id FROM registration_codes 
-                WHERE code = %s AND role = 'retailer' AND used = FALSE
-            """, (code,))
-            code_record = cursor.fetchone()
-            
-            if not code_record:
-                flash("Invalid or used registration code", "danger")
-                return redirect(url_for("register_retailer"))
+                INSERT INTO users (username, password, role, is_approved)
+                VALUES (%s, %s, 'retailer', FALSE)
+            """, (username, password))            
 
-            # Create retailer account
             cursor.execute("""
-                INSERT INTO users (username, password, role, is_verified, is_active)
-                VALUES (%s, %s, 'retailer', FALSE, TRUE)
-            """, (username, password))
-            
-            # Mark code as used
-            cursor.execute("""
-                UPDATE registration_codes SET used = TRUE WHERE id = %s
-            """, (code_record['id'],))
+                INSERT INTO retailer_profiles (user_id, business_name)
+                VALUES (%s, %s)
+            """, (cursor.lastrowid, business_name))
             
             db.commit()
-            flash("Retailer registration submitted for admin approval", "success")
+            flash("Retailer registration submitted for school approval", "success")
             return redirect(url_for("login"))
         except Exception as e:
             db.rollback()
@@ -243,6 +212,14 @@ def login():
 
         if user_data:
             if password == user_data['password']:
+                if user_data['role'] == 'school' and not user_data['is_verified']:
+                    flash("School account pending admin approval", "danger")
+                    return redirect(url_for("login"))
+                    
+                if user_data['role'] == 'retailer' and not user_data['is_approved']:
+                    flash("Retailer account pending school approval", "danger")
+                    return redirect(url_for("login"))
+            
                 if user_data['role'] == 'retailer' and not user_data['is_verified']:
                     flash("Retailer account pending admin approval", "danger")
                     return redirect(url_for("login"))
