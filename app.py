@@ -143,6 +143,92 @@ def register_student():
             db.close()
     return render_template("register_student.html")
 
+@app.route("/register/school", methods=["GET", "POST"])
+def register_school():
+    if request.method == "POST":
+        code = request.form.get("code")
+        username = request.form.get("username")
+        password = request.form.get("password")
+        school_name = request.form.get("school_name")
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        try:
+            # Verify registration code
+            cursor.execute("""
+                SELECT id FROM registration_codes 
+                WHERE code = %s AND role = 'school' AND used = FALSE
+            """, (code,))
+            code_record = cursor.fetchone()
+            
+            if not code_record:
+                flash("Invalid or used registration code", "danger")
+                return redirect(url_for("register_school"))
+
+            # Create school account
+            cursor.execute("""
+                INSERT INTO users (username, password, role, is_verified, is_active)
+                VALUES (%s, %s, 'school', TRUE, TRUE)
+            """, (username, password))
+            
+            # Mark code as used
+            cursor.execute("""
+                UPDATE registration_codes SET used = TRUE WHERE id = %s
+            """, (code_record['id'],))
+            
+            db.commit()
+            flash("School registration successful! You can now login.", "success")
+            return redirect(url_for("login"))
+        except Exception as e:
+            db.rollback()
+            flash(str(e), "danger")
+        finally:
+            db.close()
+    return render_template("register_school.html")
+
+@app.route("/register/retailer", methods=["GET", "POST"])
+def register_retailer():
+    if request.method == "POST":
+        code = request.form.get("code")
+        username = request.form.get("username")
+        password = request.form.get("password")
+        business_name = request.form.get("business_name")
+
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        try:
+            # Verify registration code
+            cursor.execute("""
+                SELECT id FROM registration_codes 
+                WHERE code = %s AND role = 'retailer' AND used = FALSE
+            """, (code,))
+            code_record = cursor.fetchone()
+            
+            if not code_record:
+                flash("Invalid or used registration code", "danger")
+                return redirect(url_for("register_retailer"))
+
+            # Create retailer account
+            cursor.execute("""
+                INSERT INTO users (username, password, role, is_verified, is_active)
+                VALUES (%s, %s, 'retailer', FALSE, TRUE)
+            """, (username, password))
+            
+            # Mark code as used
+            cursor.execute("""
+                UPDATE registration_codes SET used = TRUE WHERE id = %s
+            """, (code_record['id'],))
+            
+            db.commit()
+            flash("Retailer registration submitted for admin approval", "success")
+            return redirect(url_for("login"))
+        except Exception as e:
+            db.rollback()
+            flash(str(e), "danger")
+        finally:
+            db.close()
+    return render_template("register_retailer.html")
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -157,6 +243,10 @@ def login():
 
         if user_data:
             if password == user_data['password']:
+                if user_data['role'] == 'retailer' and not user_data['is_verified']:
+                    flash("Retailer account pending admin approval", "danger")
+                    return redirect(url_for("login"))
+                
                 if user_data['role'] == 'parent' and not user_data['is_verified']:
                     flash("Account pending school approval", "danger")
                     return redirect(url_for("login"))
