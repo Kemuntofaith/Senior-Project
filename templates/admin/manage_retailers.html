@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card" style="background: #89CFF0; color: white;">
+    <div class="card-header">Pending Retailer Approvals</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Registered On</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for retailer in retailers %}
+            <tr>
+                <td>{{ retailer.username }}</td>
+                <td>{{ retailer.created_at }}</td>
+                <td>
+                    <a href="{{ url_for('approve_retailer', retailer_id=retailer.id) }}" 
+                       class="btn-green">Approve</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
