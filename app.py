@@ -1,6 +1,7 @@
 # backtoschool_app/app.py
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import mysql.connector
 from dotenv import load_dotenv
@@ -822,29 +823,6 @@ def update_order_status(order_id, status):
     
     return redirect(url_for("retailer_orders"))
 
-@app.route("/admin/approve_school/<int:school_id>")
-@login_required
-def approve_school(school_id):
-    if current_user.role != "admin":
-        flash("Access denied", "danger")
-        return redirect(url_for("login"))
-    
-    db = get_db()
-    cursor = db.cursor()
-    try:
-        cursor.execute("""
-            UPDATE users SET is_verified = TRUE 
-            WHERE id = %s AND role = 'school'
-        """, (school_id,))
-        db.commit()
-        flash("School approved successfully", "success")
-    except Exception as e:
-        db.rollback()
-        flash(f"Approval failed: {str(e)}", "danger")
-    finally:
-        db.close()
-    return redirect(url_for("admin_dashboard"))
-
 @app.route("/admin")
 @login_required
 def admin_dashboard():
@@ -875,6 +853,185 @@ def admin_dashboard():
         user_count=user_count,
         school_count=school_count
     )
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        pin_code = request.form.get("pin_code")
+        
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT * FROM users 
+            WHERE username = %s AND is_admin = TRUE
+        """, (username,))
+        admin_data = cursor.fetchone()
+        db.close()
+
+        if admin_data and check_password_hash(admin_data['password'], password):
+            if admin_data['pin_code'] == pin_code:
+                user = User(
+                    id=admin_data['id'],
+                    username=admin_data['username'],
+                    role='admin',
+                    is_verified=True,
+                    is_active=True
+                )
+                login_user(user)
+                flash("Admin login successful", "success")
+                return redirect(url_for("admin_dashboard"))
+            else:
+                flash("Invalid PIN code", "danger")
+        else:
+            flash("Invalid admin credentials", "danger")
+    return render_template("admin/login.html")
+
+@app.route("/admin/dashboard")
+@login_required
+def admin_dashboard():
+    if not current_user.is_admin:
+        flash("Access denied", "danger")
+        return redirect(url_for("login"))
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    
+    # Get pending approvals
+    cursor.execute("""
+        SELECT id, username, role, created_at 
+        FROM users 
+        WHERE (role = 'school' AND is_verified = FALSE)
+           OR (role = 'retailer' AND is_approved = FALSE)
+           OR (role = 'parent' AND is_verified = FALSE)
+    """)
+    pending_approvals = cursor.fetchall()
+    
+    # Get system stats
+    cursor.execute("SELECT COUNT(*) as total_users FROM users")
+    stats = cursor.fetchone()
+    
+    # Get recent activity
+    cursor.execute("""
+        SELECT l.action, l.created_at, u.username as target_user
+        FROM admin_logs l
+        JOIN users u ON l.target_user_id = u.id
+        ORDER BY l.created_at DESC
+        LIMIT 10
+    """)
+    activity_logs = cursor.fetchall()
+    
+    db.close()
+    return render_template("admin/dashboard.html",
+        pending_approvals=pending_approvals,
+        stats=stats,
+        activity_logs=activity_logs
+    )
+
+@app.route("/admin/approve/<int:user_id>")
+@login_required
+def admin_approve(user_id):
+    if not current_user.is_admin:
+        flash("Access denied", "danger")
+        return redirect(url_for("login"))
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        # Get user first to determine type
+        cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        
+        if user:
+            if user['role'] == 'school':
+                cursor.execute("UPDATE users SET is_verified = TRUE WHERE id = %s", (user_id,))
+            elif user['role'] == 'retailer':
+                cursor.execute("UPDATE users SET is_approved = TRUE WHERE id = %s", (user_id,))
+            elif user['role'] == 'parent':
+                cursor.execute("UPDATE users SET is_verified = TRUE WHERE id = %s", (user_id,))
+            
+            # Log the action
+            cursor.execute("""
+                INSERT INTO admin_logs (admin_id, action, target_user_id)
+                VALUES (%s, %s, %s)
+            """, (current_user.id, f"Approved {user['role']} account", user_id))
+            
+            db.commit()
+            flash("Account approved successfully", "success")
+        else:
+            flash("User not found", "danger")
+    except Exception as e:
+        db.rollback()
+        flash(f"Error: {str(e)}", "danger")
+    finally:
+        db.close()
+    
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/toggle_user/<int:user_id>")
+@login_required
+def admin_toggle_user(user_id):
+    if not current_user.is_admin:
+        flash("Access denied", "danger")
+        return redirect(url_for("login"))
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("""
+            UPDATE users 
+            SET is_active = NOT is_active 
+            WHERE id = %s AND id != %s
+        """, (user_id, current_user.id))
+        
+        if cursor.rowcount > 0:
+            cursor.execute("SELECT username, is_active FROM users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
+            
+            action = "activated" if user['is_active'] else "deactivated"
+            
+            cursor.execute("""
+                INSERT INTO admin_logs (admin_id, action, target_user_id)
+                VALUES (%s, %s, %s)
+            """, (current_user.id, f"{action} user {user['username']}", user_id))
+            
+            db.commit()
+            flash(f"User {action} successfully", "success")
+        else:
+            flash("Cannot modify your own status or user not found", "danger")
+    except Exception as e:
+        db.rollback()
+        flash(f"Error: {str(e)}", "danger")
+    finally:
+        db.close()
+    
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/approve_school/<int:school_id>")
+@login_required
+def approve_school(school_id):
+    if current_user.role != "admin":
+        flash("Access denied", "danger")
+        return redirect(url_for("login"))
+    
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute("""
+            UPDATE users SET is_verified = TRUE 
+            WHERE id = %s AND role = 'school'
+        """, (school_id,))
+        db.commit()
+        flash("School approved successfully", "success")
+    except Exception as e:
+        db.rollback()
+        flash(f"Approval failed: {str(e)}", "danger")
+    finally:
+        db.close()
+    return redirect(url_for("admin_dashboard"))
 
 @app.errorhandler(404)
 def page_not_found(e):
