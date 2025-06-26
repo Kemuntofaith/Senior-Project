@@ -93,3 +93,22 @@ ALTER TABLE users
 ADD COLUMN is_verified BOOLEAN DEFAULT FALSE,
 ADD COLUMN is_active BOOLEAN DEFAULT TRUE,
 ADD COLUMN is_approved BOOLEAN DEFAULT FALSE;
+
+-- Add admin-specific fields
+ALTER TABLE users 
+ADD COLUMN pin_code VARCHAR(6) NULL,
+ADD COLUMN is_admin BOOLEAN DEFAULT FALSE;
+
+-- Create admin account (run this manually after initial setup)
+INSERT INTO users (username, password, pin_code, role, is_admin, is_verified, is_active)
+VALUES ('admin', 'hashed_password_here', '123456', 'admin', TRUE, TRUE, TRUE);
+
+-- Create admin logs table
+CREATE TABLE admin_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    admin_id INT NOT NULL,
+    action VARCHAR(255) NOT NULL,
+    target_user_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES users(id)
+);
