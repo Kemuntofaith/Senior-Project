@@ -1,7 +1,7 @@
 # backtoschool_app/app.py
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
 import mysql.connector
 from dotenv import load_dotenv
@@ -36,7 +36,7 @@ def load_user(user_id):
         )
     return None
 
-class User(UserMixin):
+class User( UserMixin):
     def __init__(self, id, username, role, school_id=None, is_verified=False, is_active=True, is_approved=False):
         self.id = id
         self.username = username
@@ -45,6 +45,44 @@ class User(UserMixin):
         self.is_verified = is_verified
         self.is_active = is_active
         self.is_apprroved = is_approved
+
+    @property
+    def id(self):
+        return self._id
+
+    @property 
+    def username(self):
+        return self._username
+
+    @property
+    def role(self):
+        return self._role
+
+    @property
+    def school_id(self):
+        return self._school_id
+
+    @property
+    def is_verified(self):
+        return self._is_verified
+
+    @property
+    def is_active(self):
+        """Required by Flask-Login"""
+        return self._is_active
+
+    @is_active.setter
+    def is_active(self, value):
+        """Allows Flask-Login to modify status"""
+        self._is_active = value
+
+    @property
+    def is_approved(self):
+        return self._is_approved
+
+    def get_id(self):
+        """Required override for Flask-Login"""
+        return str(self._id)    
 
 def get_db():
     return mysql.connector.connect(
@@ -822,37 +860,6 @@ def update_order_status(order_id, status):
         db.close()
     
     return redirect(url_for("retailer_orders"))
-
-@app.route("/admin")
-@login_required
-def admin_dashboard():
-    if current_user.role != "admin":
-        flash("Access denied", "danger")
-        return redirect(url_for("login"))
-    
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-    
-    cursor.execute("""
-        SELECT id, username, created_at
-        FROM users
-        WHERE role = 'school' AND is_verified = FALSE
-        ORDER BY created_at
-    """)
-    pending_schools = cursor.fetchall()
- 
-    cursor.execute("SELECT COUNT(*) as user_count FROM users")
-    user_count = cursor.fetchone()['user_count']
-    
-    cursor.execute("SELECT COUNT(*) as school_count FROM users WHERE role = 'school'")
-    school_count = cursor.fetchone()['school_count']
-    
-    db.close()
-    return render_template("admin/dashboard.html",
-        pending_schools=pending_schools,
-        user_count=user_count,
-        school_count=school_count
-    )
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():

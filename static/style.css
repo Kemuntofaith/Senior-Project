@@ -134,3 +134,21 @@ tr:nth-child(even) {
     border-bottom: 1px solid #eee;
     padding-bottom: 0.5rem;
 }
+
+/* Admin specific styles */
+.admin-login-container {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.admin-section {
+    background: white;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.admin-actions {
+    display: flex;
+    gap: 0.5rem;
+}
