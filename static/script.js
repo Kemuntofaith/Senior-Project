@@ -1,3 +1,4 @@
+not edited
 // backtoschool_app/static/script.js
 document.addEventListener('DOMContentLoaded', function() {
     // Cart quantity adjustments

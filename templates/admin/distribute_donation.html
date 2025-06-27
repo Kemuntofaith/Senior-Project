@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Distribute Donation #{{ donation.id }}</h2>
+                    
+                    <div class="mb-4">
+                        <p><strong>Type:</strong> {{ donation.donation_type|capitalize }}</p>
+                        {% if donation.donation_type == 'monetary' %}
+                        <p><strong>Amount:</strong> ${{ "%.2f"|format(donation.amount) }}</p>
+                        {% else %}
+                        <p><strong>Description:</strong> {{ donation.description }}</p>
+                        {% endif %}
+                        <p><strong>Available:</strong> 
+                            {% if donation.donation_type == 'monetary' %}
+                                ${{ "%.2f"|format(donation.amount - (donation.distributions|sum(attribute='amount') or 0)) }}
+                            {% else %}
+                                {{ donation.items|length }} items
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="recipient_id" class="form-label">Recipient</label>
+                            <select class="form-select" id="recipient_id" name="recipient_id" required>
+                                <option value="">Select a recipient</option>
+                                {% for recipient in recipients %}
+                                <option value="{{ recipient.id }}">{{ recipient.username }} ({{ recipient.role|capitalize }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        {% if donation.donation_type == 'monetary' %}
+                        <div class="mb-3">
+                            <label for="amount" class="form-label">Amount to Distribute</label>
+                            <input type="number" class="form-control" id="amount" name="amount" 
+                                   min="0.01" max="{{ donation.amount - (donation.distributions|sum(attribute='amount') or 0) }}" 
+                                   step="0.01" required>
+                        </div>
+                        {% else %}
+                        <div class="mb-3">
+                            <label for="item_id" class="form-label">Item to Distribute</label>
+                            <select class="form-select" id="item_id" name="item_id" required>
+                                <option value="">Select an item</option>
+                                {% for item in donation.items %}
+                                <option value="{{ item.id }}">{{ item.description }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Distribute</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

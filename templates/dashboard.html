@@ -48,6 +48,29 @@
                     </div>
                 </div>
             {% endif %}
+
+            {% if user.role in ['parent', 'student'] %}
+                <div class="row mt-4">
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Shopping</h5>
+                                <p class="card-text">Browse and purchase school supplies</p>
+                                <a href="{{ url_for('shop') }}" class="btn btn-primary">Go Shopping</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Wallet</h5>
+                                <p class="card-text">Balance: ${{ "%.2f"|format(user.wallet.balance) }}</p>
+                                <a href="{{ url_for('wallet') }}" class="btn btn-primary">View Wallet</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>

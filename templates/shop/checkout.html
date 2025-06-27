@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Checkout</h2>
+    
+    {% if non_compliant_items %}
+    <div class="alert alert-danger mb-4">
+        <h4>Non-compliant Items</h4>
+        <ul>
+            {% for item in non_compliant_items %}
+            <li><strong>{{ item.product.name }}</strong>: {{ item.reason }}</li>
+            {% endfor %}
+        </ul>
+        <p>Please remove these items to proceed with checkout.</p>
+    </div>
+    {% endif %}
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Order Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-dark">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Price</th>
+                                    <th>Quantity</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in cart.items %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td>${{ "%.2f"|format(item.product.price) }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>${{ "%.2f"|format(item.product.price * item.quantity) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Payment</h5>
+                </div>
+                <div class="card-body">
+                    <p>Wallet Balance: ${{ "%.2f"|format(current_user.wallet.balance) }}</p>
+                    <p>Order Total: ${{ "%.2f"|format(total) }}</p>
+                    <hr>
+                    {% if current_user.wallet.balance >= total %}
+                    <form method="POST">
+                        <button type="submit" class="btn btn-success w-100">Pay with Wallet</button>
+                    </form>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        Insufficient funds. Please <a href="{{ url_for('wallet_deposit') }}" class="alert-link">add money to your wallet</a>.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

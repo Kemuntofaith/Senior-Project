@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="card-body">
+            <h2 class="card-title">Donation #{{ donation.id }}</h2>
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <p><strong>Type:</strong> {{ donation.donation_type|capitalize }}</p>
+                    {% if donation.donation_type == 'monetary' %}
+                    <p><strong>Amount:</strong> ${{ "%.2f"|format(donation.amount) }}</p>
+                    {% endif %}
+                    <p><strong>Status:</strong> <span class="badge bg-{{ 'success' if donation.status == 'approved' else 'warning' }}">{{ donation.status|capitalize }}</span></p>
+                    <p><strong>Date:</strong> {{ donation.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Description:</strong></p>
+                    <p>{{ donation.description }}</p>
+                </div>
+            </div>
+            
+            {% if donation.distributions %}
+            <h4>Distributions</h4>
+            <div class="table-responsive">
+                <table class="table table-dark">
+                    <thead>
+                        <tr>
+                            <th>Recipient</th>
+                            <th>Amount/Item</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dist in donation.distributions %}
+                        <tr>
+                            <td>{{ dist.recipient.username }}</td>
+                            <td>
+                                {% if dist.amount %}
+                                    ${{ "%.2f"|format(dist.amount) }}
+                                {% else %}
+                                    {{ dist.donation_item.description }}
+                                {% endif %}
+                            </td>
+                            <td>{{ dist.distributed_at.strftime('%Y-%m-%d') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
