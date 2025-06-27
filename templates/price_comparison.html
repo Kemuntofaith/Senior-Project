@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="card-title">Price Comparison</h2>
+            <form method="GET" class="row g-3">
+                <div class="col-md-8">
+                    <input type="text" class="form-control" name="q" value="{{ search_query }}" placeholder="Search for products...">
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">Compare Prices</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if search_query %}
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Results for "{{ search_query }}"</h5>
+            
+            {% if comparisons %}
+            <div class="table-responsive">
+                <table class="table table-dark">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Retailer</th>
+                            <th>Price</th>
+                            <th>Distance</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for comp in comparisons %}
+                        <tr class="{{ 'table-success' if comp.is_best_price }}">
+                            <td>{{ comp.product.name }}</td>
+                            <td>{{ comp.retailer.business_name }}</td>
+                            <td>
+                                ${{ "%.2f"|format(comp.price) }}
+                                {% if comp.product.original_price and comp.product.original_price > comp.price %}
+                                <small class="text-muted"><s>${{ "%.2f"|format(comp.product.original_price) }}</s></small>
+                                {% endif %}
+                            </td>
+                            <td>{{ "%.1f"|format(comp.distance) }} miles</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('cart') }}">
+                                    <input type="hidden" name="product_id" value="{{ comp.product.id }}">
+                                    <button type="submit" class="btn btn-sm btn-primary">Add to Cart</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                No products found matching "{{ search_query }}"
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

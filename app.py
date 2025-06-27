@@ -37,6 +37,85 @@ class User(db.Model):
     def wallet(self):
         return Wallet.query.filter_by(user_id=self.id).first() or Wallet(user_id=self.id, balance=0.0)
     
+    def add_notification(self, title, message, notification_type, reference_id=None):
+        notification = Notification(
+            user_id=self.id,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            reference_id=reference_id
+        )
+        db.session.add(notification)
+        db.session.commit()
+        return notification
+    
+    def get_retailer(self):
+        if self.role == 'retailer':
+            return Retailer.query.filter_by(user_id=self.id).first()
+        return None
+
+def check_compliance(items, school_id):
+    """Check items against school requirements"""
+    non_compliant = []
+    requirements = SchoolRequirement.query.filter_by(school_id=school_id).all()
+    
+    for item in items:
+        # Check if item is restricted
+        req = next((r for r in requirements if r.item_name.lower() in item.product.name.lower()), None)
+        if req and not req.is_allowed:
+            non_compliant.append({
+                'product': item.product,
+                'reason': f'Restricted item: {req.item_name}'
+            })
+        
+        # Check quantity limits if specified
+        if req and req.quantity_required and item.quantity > req.quantity_required:
+            non_compliant.append({
+                'product': item.product,
+                'reason': f'Quantity exceeds school limit of {req.quantity_required}'
+            })
+    
+    return non_compliant
+
+def compare_prices(product_name, school_id):
+    """Compare prices across retailers for a product"""
+    school = School.query.get(school_id)
+    if not school:
+        return []
+    
+    # Get all approved retailers for this school
+    retailers = Retailer.query.filter(Retailer.approved_schools.any(id=school_id)).all()
+    retailer_ids = [r.id for r in retailers]
+    
+    # Find matching products
+    products = Product.query.filter(Product.name.ilike(f'%{product_name}%'),
+                                  Product.retailer_id.in_(retailer_ids),
+                                  Product.quantity > 0).all()
+    
+    comparisons = []
+    for product in products:
+        retailer = next(r for r in retailers if r.id == product.retailer_id)
+        distance = calculate_distance(school.address, retailer.business_address)
+        
+        comparison = {
+            'product': product,
+            'retailer': retailer,
+            'price': product.price,
+            'distance': distance,
+            'is_best_price': product.price == product.best_price
+        }
+        comparisons.append(comparison)
+    
+    # Sort by price then distance
+    comparisons.sort(key=lambda x: (x['price'], x['distance']))
+    return comparisons
+
+def calculate_distance(address1, address2):
+    """Simplified distance calculation - in a real app, use geocoding API"""
+    # This is a placeholder - implement real distance calculation
+    return random.uniform(0.5, 10.0)  # Random distance for demo
+
+    
 class School(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -67,19 +146,29 @@ retailer_school = db.Table('retailer_school',
     db.Column('school_id', db.Integer, db.ForeignKey('school.id'), primary_key=True)
 )
 
+# ===== REPLACE THE EXISTING PRODUCT MODEL WITH THIS =====
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     retailer_id = db.Column(db.Integer, db.ForeignKey('retailer.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     price = db.Column(db.Float, nullable=False)
+    original_price = db.Column(db.Float)  # For showing discounts
     quantity = db.Column(db.Integer, default=0)
     category = db.Column(db.String(50))
+    is_featured = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     retailer = db.relationship('Retailer', backref='products')
-
+    
+    @property
+    def best_price(self):
+        comparison = PriceComparison.query.filter_by(product_id=self.id)\
+                                        .order_by(PriceComparison.price)\
+                                        .first()
+        return comparison.price if comparison else self.price
+    
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -182,6 +271,29 @@ class OrderTracking(db.Model):
     notes = db.Column(db.Text)
     
     order = db.relationship('Order', backref='tracking_updates')
+
+class PriceComparison(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    retailer_id = db.Column(db.Integer, db.ForeignKey('retailer.id'), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    distance = db.Column(db.Float)  # Distance from school in miles
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    product = db.relationship('Product', backref='comparisons')
+    retailer = db.relationship('Retailer', backref='price_comparisons')
+
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    is_read = db.Column(db.Boolean, default=False)
+    notification_type = db.Column(db.String(50))  # order, donation, compliance, deal
+    reference_id = db.Column(db.Integer)  # ID of related item (order_id, etc.)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref='notifications')
 
 # ====================== DECORATORS ======================
 def login_required(f):
@@ -334,6 +446,60 @@ def approve_retailer(retailer_id):
     flash('Retailer approved for your school', 'success')
     return redirect(url_for('approve_retailers'))
 
+# ====================== ADMIN MANAGEMENT ROUTES ======================
+@app.route('/admin/users')
+@role_required(['app_admin'])
+def admin_users():
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template('admin/users.html', users=users)
+
+@app.route('/admin/retailers')
+@role_required(['app_admin'])
+def admin_retailers():
+    retailers = Retailer.query.order_by(Retailer.is_approved_by_admin).all()
+    return render_template('admin/retailers.html', retailers=retailers)
+
+@app.route('/admin/approve-retailer/<int:retailer_id>')
+@role_required(['app_admin'])
+def admin_approve_retailer(retailer_id):
+    retailer = Retailer.query.get_or_404(retailer_id)
+    retailer.is_approved_by_admin = True
+    db.session.commit()
+    
+    # Notify retailer's user account
+    user = User.query.get(retailer.user_id)
+    user.add_notification(
+        "Retailer Approved",
+        "Your retailer account has been approved by admin",
+        "admin"
+    )
+    
+    flash('Retailer approved successfully', 'success')
+    return redirect(url_for('admin_retailers'))
+
+@app.route('/admin/config', methods=['GET', 'POST'])
+@role_required(['app_admin'])
+def admin_config():
+    if request.method == 'POST':
+        # Update system configurations here
+        flash('Settings updated successfully', 'success')
+        return redirect(url_for('admin_config'))
+    
+    return render_template('admin/config.html')
+
+@app.route('/admin/reports')
+@role_required(['app_admin'])
+def admin_reports():
+    # Generate report data
+    schools = School.query.count()
+    active_orders = Order.query.filter(Order.status.in_(['paid', 'shipped'])).count()
+    recent_donations = Donation.query.order_by(Donation.created_at.desc()).limit(5).all()
+    
+    return render_template('admin/reports.html',
+                         schools=schools,
+                         active_orders=active_orders,
+                         recent_donations=recent_donations)
+
 # ====================== SCHOOL REQUIREMENTS ROUTES ======================
 @app.route('/school/requirements')
 @role_required(['school_admin'])
@@ -468,28 +634,82 @@ def checkout():
     if not cart or not cart.items:
         flash('Your cart is empty', 'error')
         return redirect(url_for('shop'))
-    
+
     # Check compliance with school requirements
-    non_compliant_items = check_compliance(cart, user.school_id)
+    non_compliant_items = check_compliance(cart.items, user.school_id)
     if non_compliant_items:
+        user.add_notification(
+            "Compliance Issues",
+            f"Your cart has {len(non_compliant_items)} non-compliant items",
+            "compliance"
+        )
         flash('Some items in your cart do not comply with school requirements', 'error')
         return render_template('shop/checkout.html', cart=cart, non_compliant_items=non_compliant_items)
-    
+
     if request.method == 'POST':
-        # Process payment from wallet
+        # Process payment from wallet and/or donations
         total = sum(item.product.price * item.quantity for item in cart.items)
         wallet = Wallet.query.filter_by(user_id=user.id).first()
+        donation_amount = float(request.form.get('donation_amount', 0))
+        wallet_amount = total - donation_amount
         
-        if not wallet or wallet.balance < total:
-            flash('Insufficient funds in your wallet', 'error')
-            return redirect(url_for('wallet_deposit'))
+        if donation_amount > 0:
+            # Check if user has available donations
+            available_donations = DonationDistribution.query\
+                .filter_by(recipient_id=user.id)\
+                .filter(Donation.donation_type == 'monetary')\
+                .filter(Donation.status == 'approved')\
+                .join(Donation)\
+                .all()
+            
+            total_available = sum(d.amount for d in available_donations)
+            
+            if donation_amount > total_available:
+                flash('Not enough donated funds available', 'error')
+                return redirect(url_for('order_detail', order_id=order.id))
+
+            # Apply donation to order
+            remaining = donation_amount
+            for donation in available_donations:
+                if remaining <= 0:
+                    break
+                
+                use_amount = min(donation.amount, remaining)
+                donation.amount -= use_amount
+                remaining -= use_amount
+                
+                # Create order-donation link
+                order_donation = DonationDistribution(
+                    donation_id=donation.donation_id,
+                    recipient_id=user.id,
+                    amount=-use_amount,
+                    order_id=order.id
+                )
+                db.session.add(order_donation)
+        
+        # Process wallet payment if needed
+        if wallet_amount > 0:
+            if not wallet or wallet.balance < wallet_amount:
+                flash('Insufficient funds in your wallet', 'error')
+                return redirect(url_for('wallet_deposit'))
+            
+            wallet.balance -= wallet_amount
+            transaction = WalletTransaction(
+                wallet_id=wallet.id,
+                amount=-wallet_amount,
+                transaction_type='payment',
+                reference=f'ORDER_{order.id}'
+            )
+            db.session.add(transaction)
         
         # Create order
         order = Order(
             user_id=user.id,
             school_id=user.school_id,
             total_amount=total,
-            status='paid'
+            status='paid',
+            payment_method='donation' if wallet_amount <= 0 else 'wallet' if donation_amount <= 0 else 'mixed',
+            donation_used=donation_amount
         )
         db.session.add(order)
         
@@ -506,18 +726,27 @@ def checkout():
             # Update product quantity
             cart_item.product.quantity -= cart_item.quantity
         
-        # Process payment
-        wallet.balance -= total
-        transaction = WalletTransaction(
-            wallet_id=wallet.id,
-            amount=-total,
-            transaction_type='payment',
-            reference=f'ORDER_{order.id}'
-        )
-        db.session.add(transaction)
-        
         # Clear cart
         CartItem.query.filter_by(cart_id=cart.id).delete()
+        
+        # Send notifications
+        user.add_notification(
+            "Order Confirmed",
+            f"Your order #{order.id} has been placed successfully",
+            "order",
+            order.id
+        )
+        
+        if user.school:
+            school_admin = User.query.filter_by(school_id=user.school_id, role='school_admin').first()
+            if school_admin:
+                school_admin.add_notification(
+                    "New Order",
+                    f"New order #{order.id} from {user.username}",
+                    "order",
+                    order.id
+                )
+        
         db.session.commit()
         
         flash('Order placed successfully!', 'success')
@@ -525,28 +754,6 @@ def checkout():
     
     total = sum(item.product.price * item.quantity for item in cart.items)
     return render_template('shop/checkout.html', cart=cart, total=total)
-
-def check_compliance(cart, school_id):
-    non_compliant = []
-    requirements = SchoolRequirement.query.filter_by(school_id=school_id).all()
-    
-    for item in cart.items:
-        # Check if item is restricted
-        req = next((r for r in requirements if r.item_name.lower() == item.product.name.lower()), None)
-        if req and not req.is_allowed:
-            non_compliant.append({
-                'product': item.product,
-                'reason': 'This item is restricted by your school'
-            })
-        
-        # Check quantity limits if specified
-        if req and req.quantity_required and item.quantity > req.quantity_required:
-            non_compliant.append({
-                'product': item.product,
-                'reason': f'Quantity exceeds school limit of {req.quantity_required}'
-            })
-    
-    return non_compliant
 
 # ====================== SAVINGS WALLET ROUTES ======================
 @app.route('/wallet')
@@ -828,6 +1035,87 @@ def apply_donation_to_order(order_id):
     
     flash('Payment processed successfully', 'success')
     return redirect(url_for('order_detail', order_id=order.id))
+
+# ====================== COMPLIANCE CHECKER ROUTES ======================
+@app.route('/api/check-compliance', methods=['POST'])
+@login_required
+def api_check_compliance():
+    user = User.query.get(session['user_id'])
+    if not user.school_id:
+        return jsonify({'error': 'No school associated'}), 400
+    
+    cart_items = []
+    if 'cart_id' in request.json:
+        cart = Cart.query.get(request.json['cart_id'])
+        if cart and cart.user_id == user.id:
+            cart_items = cart.items
+    
+    non_compliant = check_compliance(cart_items, user.school_id)
+    return jsonify({
+        'is_compliant': len(non_compliant) == 0,
+        'non_compliant_items': [{
+            'product_id': item['product'].id,
+            'product_name': item['product'].name,
+            'reason': item['reason']
+        } for item in non_compliant]
+    })
+
+# ====================== PRICE COMPARISON ROUTES ======================
+@app.route('/compare-prices')
+@login_required
+@role_required(['parent', 'student'])
+def price_comparison():
+    search_query = request.args.get('q', '')
+    user = User.query.get(session['user_id'])
+    
+    if not user.school_id:
+        flash('You need to be associated with a school to compare prices', 'error')
+        return redirect(url_for('dashboard'))
+    
+    comparisons = []
+    if search_query:
+        comparisons = compare_prices(search_query, user.school_id)
+    
+    return render_template('price_comparison.html', 
+                         comparisons=comparisons,
+                         search_query=search_query)
+
+# ====================== NOTIFICATIONS ROUTES ======================
+@app.route('/notifications')
+@login_required
+def notifications():
+    user = User.query.get(session['user_id'])
+    notifications = Notification.query.filter_by(user_id=user.id)\
+                                    .order_by(Notification.created_at.desc())\
+                                    .all()
+    return render_template('notifications/index.html', notifications=notifications)
+
+@app.route('/notifications/mark-read/<int:notification_id>')
+@login_required
+def mark_notification_read(notification_id):
+    notification = Notification.query.get_or_404(notification_id)
+    if notification.user_id != session['user_id']:
+        flash('Unauthorized', 'error')
+        return redirect(url_for('notifications'))
+    
+    notification.is_read = True
+    db.session.commit()
+    
+    # Redirect to relevant page if reference exists
+    if notification.notification_type == 'order' and notification.reference_id:
+        return redirect(url_for('order_detail', order_id=notification.reference_id))
+    elif notification.notification_type == 'donation' and notification.reference_id:
+        return redirect(url_for('donation_status', donation_id=notification.reference_id))
+    
+    return redirect(url_for('notifications'))
+
+@app.route('/notifications/clear')
+@login_required
+def clear_notifications():
+    Notification.query.filter_by(user_id=session['user_id']).delete()
+    db.session.commit()
+    flash('Notifications cleared', 'success')
+    return redirect(url_for('notifications'))
 
 # ====================== MAIN ======================
 if __name__ == '__main__':

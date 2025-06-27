@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Notifications</h2>
+        <a href="{{ url_for('clear_notifications') }}" class="btn btn-sm btn-danger">Clear All</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            {% if notifications %}
+            <div class="list-group">
+                {% for notification in notifications %}
+                <a href="{{ url_for('mark_notification_read', notification_id=notification.id) }}" 
+                   class="list-group-item list-group-item-action {{ 'list-group-item-dark' if notification.is_read else 'bg-dark text-white' }}">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">{{ notification.title }}</h5>
+                        <small>{{ notification.created_at|datetime }}</small>
+                    </div>
+                    <p class="mb-1">{{ notification.message }}</p>
+                    <small>{% if not notification.is_read %}(New){% endif %}</small>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                You have no notifications
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

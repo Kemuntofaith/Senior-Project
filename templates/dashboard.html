@@ -71,6 +71,102 @@
                     </div>
                 </div>
             {% endif %}
+
+            {% if user.role == 'donor' %}
+                <div class="row mt-4">
+                    <div class="col-12 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Donations</h5>
+                                <p class="card-text">Make a donation to support students</p>
+                                <a href="{{ url_for('donate') }}" class="btn btn-primary">Make Donation</a>
+                                <a href="{{ url_for('donation_status') }}" class="btn btn-secondary">View My Donations</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if notifications|rejectattr('is_read')|list|count > 0 %}
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-warning text-dark">
+                                <h5 class="mb-0">Unread Notifications</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="list-group">
+                                    {% for notification in notifications|rejectattr('is_read')|sort(attribute='created_at', reverse=True)|slice(3) %}
+                                    <a href="{{ url_for('mark_notification_read', notification_id=notification.id) }}" 
+                                    class="list-group-item list-group-item-action">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1">{{ notification.title }}</h6>
+                                            <small>{{ notification.created_at|datetime }}</small>
+                                        </div>
+                                        <p class="mb-1">{{ notification.message }}</p>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                                <div class="text-end mt-3">
+                                    <a href="{{ url_for('notifications') }}" class="btn btn-sm btn-outline-warning">View All Notifications</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if user.role == 'app_admin' %}
+                <div class="row mt-4">
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">User Management</h5>
+                                <p class="card-text">Manage all user accounts and permissions</p>
+                                <a href="{{ url_for('admin_users') }}" class="btn btn-primary">Manage Users</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">School Approvals</h5>
+                                <p class="card-text">Review and approve new school registrations</p>
+                                <a href="{{ url_for('approve_users') }}" class="btn btn-primary">Review Schools</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Retailer Approvals</h5>
+                                <p class="card-text">Approve retailers before school assignment</p>
+                                <a href="{{ url_for('admin_retailers') }}" class="btn btn-primary">Manage Retailers</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">System Configuration</h5>
+                                <p class="card-text">Modify system settings and content</p>
+                                <a href="{{ url_for('admin_config') }}" class="btn btn-secondary">Configure</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Reports</h5>
+                                <p class="card-text">View system analytics and reports</p>
+                                <a href="{{ url_for('admin_reports') }}" class="btn btn-secondary">View Reports</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>

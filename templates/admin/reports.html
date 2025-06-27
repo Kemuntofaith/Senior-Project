@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">System Reports</h2>
+    
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Registered Schools</h5>
+                    <p class="card-text display-4">{{ schools }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Active Orders</h5>
+                    <p class="card-text display-4">{{ active_orders }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-info">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Approved Retailers</h5>
+                    <p class="card-text display-4">{{ retailers|length }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h5>Recent Donations</h5>
+        </div>
+        <div class="card-body">
+            {% if recent_donations %}
+            <div class="table-responsive">
+                <table class="table table-dark">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Donor</th>
+                            <th>Type</th>
+                            <th>Amount/Item</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for donation in recent_donations %}
+                        <tr>
+                            <td>{{ donation.id }}</td>
+                            <td>{{ donation.donor.username }}</td>
+                            <td>{{ donation.donation_type|capitalize }}</td>
+                            <td>
+                                {% if donation.donation_type == 'monetary' %}
+                                    ${{ "%.2f"|format(donation.amount) }}
+                                {% else %}
+                                    {{ donation.description|truncate(20) }}
+                                {% endif %}
+                            </td>
+                            <td>{{ donation.created_at.strftime('%Y-%m-%d') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p>No recent donations</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

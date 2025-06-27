@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">System Configuration</h2>
+    
+    <div class="card">
+        <div class="card-body">
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label">System Name</label>
+                    <input type="text" class="form-control" name="system_name" value="Back to School App">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Default School Approval</label>
+                    <select class="form-select" name="school_approval">
+                        <option value="auto">Auto-approve new schools</option>
+                        <option value="manual" selected>Require manual approval</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Donation Policy</label>
+                    <textarea class="form-control" name="donation_policy" rows="4">All donations must comply with school requirements...</textarea>
+                </div>
+                
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="maintenance_mode" name="maintenance_mode">
+                    <label class="form-check-label" for="maintenance_mode">Maintenance Mode</label>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

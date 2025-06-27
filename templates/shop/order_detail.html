@@ -9,12 +9,23 @@
             <h5>Order Details</h5>
         </div>
         <div class="card-body">
-            <p><strong>Status:</strong> <span class="badge bg-{{ 'success' if order.status == 'paid' else 'warning' }}">{{ order.status|capitalize }}</span></p>
-            <p><strong>Date:</strong> {{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
-            <p><strong>Total:</strong> ${{ "%.2f"|format(order.total_amount) }}</p>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <p><strong>Status:</strong> <span class="badge bg-{{ 'success' if order.status == 'delivered' else 'warning' }}">{{ order.status|capitalize }}</span></p>
+                    <p><strong>Date:</strong> {{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    <p><strong>Payment Method:</strong> {{ order.payment_method|capitalize }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Total:</strong> ${{ "%.2f"|format(order.total_amount) }}</p>
+                    {% if order.donation_used > 0 %}
+                    <p><strong>Donation Used:</strong> ${{ "%.2f"|format(order.donation_used) }}</p>
+                    {% endif %}
+                    <p><strong>School:</strong> {{ order.school.name }}</p>
+                </div>
+            </div>
             
             <h5 class="mt-4">Items</h5>
-            <div class="table-responsive">
+            <div class="table-responsive mb-4">
                 <table class="table table-dark">
                     <thead>
                         <tr>
@@ -36,9 +47,109 @@
                     </tbody>
                 </table>
             </div>
+            
+            {% if order.tracking_updates %}
+            <h5>Order Tracking</h5>
+            <div class="timeline">
+                {% for update in order.tracking_updates|sort(attribute='updated_at') %}
+                <div class="timeline-item">
+                    <div class="timeline-badge bg-{{ 'success' if update.status == 'delivered' else 'primary' }}"></div>
+                    <div class="timeline-panel">
+                        <div class="timeline-heading">
+                            <h6 class="timeline-title">{{ update.status|capitalize }}</h6>
+                            <p class="timeline-date"><small>{{ update.updated_at.strftime('%Y-%m-%d %H:%M') }}</small></p>
+                        </div>
+                        {% if update.notes %}
+                        <div class="timeline-body">
+                            <p>{{ update.notes }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
     </div>
     
-    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
+    {% if session['role'] in ['app_admin', 'school_admin'] %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Update Order Status</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('update_order_status', order_id=order.id) }}">
+                <div class="mb-3">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status" required>
+                        <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>Processing</option>
+                        <option value="packed" {% if order.status == 'packed' %}selected{% endif %}>Packed</option>
+                        <option value="shipped" {% if order.status == 'shipped' %}selected{% endif %}>Shipped</option>
+                        <option value="delivered" {% if order.status == 'delivered' %}selected{% endif %}>Delivered</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="notes" class="form-label">Notes</label>
+                    <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Update Status</button>
+            </form>
+        </div>
+    </div>
+    {% elif order.status == 'pending' and order.user_id == session['user_id'] %}
+    <div class="card">
+        <div class="card-header">
+            <h5>Apply Donation to Order</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('apply_donation_to_order', order_id=order.id) }}">
+                <div class="mb-3">
+                    <label for="donation_amount" class="form-label">Amount to pay with donations</label>
+                    <input type="number" class="form-control" id="donation_amount" name="donation_amount" 
+                           min="0" max="{{ order.total_amount }}" step="0.01" value="0">
+                    <small class="form-text">Remaining amount will be paid from your wallet</small>
+                </div>
+                <button type="submit" class="btn btn-primary">Apply Donation and Pay</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+    
+    <a href="{{ url_for('order_list') }}" class="btn btn-secondary mt-3">Back to Orders</a>
 </div>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 1.5rem;
+    margin: 0 0 0 1rem;
+    border-left: 1px solid #444;
+}
+.timeline-item {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+.timeline-badge {
+    position: absolute;
+    left: -1.5rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background-color: #0d6efd;
+    margin-top: 0.25rem;
+}
+.timeline-panel {
+    position: relative;
+    padding: 0.5rem 1rem;
+    background-color: #2d2d2d;
+    border-radius: 0.25rem;
+}
+.timeline-title {
+    margin-bottom: 0.25rem;
+}
+.timeline-date {
+    color: #aaa;
+    margin-bottom: 0;
+}
+</style>
 {% endblock %}

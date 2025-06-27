@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Retailer Management</h2>
+    
+    <div class="card">
+        <div class="card-header">
+            <h5>Retailer Approvals</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-dark">
+                    <thead>
+                        <tr>
+                            <th>Business</th>
+                            <th>Owner</th>
+                            <th>Admin Approved</th>
+                            <th>Approved Schools</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for retailer in retailers %}
+                        <tr>
+                            <td>{{ retailer.business_name }}</td>
+                            <td>{{ retailer.user.username }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if retailer.is_approved_by_admin else 'warning' }}">
+                                    {{ 'Yes' if retailer.is_approved_by_admin else 'No' }}
+                                </span>
+                            </td>
+                            <td>
+                                {{ retailer.approved_schools|length }} schools
+                            </td>
+                            <td>
+                                {% if not retailer.is_approved_by_admin %}
+                                    <a href="{{ url_for('admin_approve_retailer', retailer_id=retailer.id) }}" class="btn btn-sm btn-success">Approve</a>
+                                {% endif %}
+                                <a href="#" class="btn btn-sm btn-info">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
