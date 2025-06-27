@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import event, Engine
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import os
@@ -185,6 +186,42 @@ class CartItem(db.Model):
     
     product = db.relationship('Product')
 
+class Donation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    donor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    donation_type = db.Column(db.String(20))  # monetary, item
+    amount = db.Column(db.Float)  # for monetary donations
+    description = db.Column(db.Text)  # for item donations
+    status = db.Column(db.String(20), default='pending')  # pending, approved, distributed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    donor = db.relationship('User', foreign_keys=[donor_id])
+    items = db.relationship('DonationItem', backref='donation', cascade='all, delete-orphan')
+    distributions = db.relationship('DonationDistribution', backref='donation_rel', cascade='all, delete-orphan')
+
+class DonationItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    donation_id = db.Column(db.Integer, db.ForeignKey('donation.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
+    quantity = db.Column(db.Integer)
+    description = db.Column(db.Text)  # For non-product donations
+    
+    product = db.relationship('Product')
+
+class DonationDistribution(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    donation_id = db.Column(db.Integer, db.ForeignKey('donation.id'), nullable=False)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
+    amount = db.Column(db.Float)  
+    item_id = db.Column(db.Integer, db.ForeignKey('donation_item.id'))  # For item donations
+    distributed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    donation_rel = db.relationship('Donation', foreign_keys=[donation_id])
+    recipient = db.relationship('User', foreign_keys=[recipient_id])
+    order = db.relationship('Order', foreign_keys=[order_id])
+    donation_item = db.relationship('DonationItem', foreign_keys=[item_id])
+
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -199,7 +236,7 @@ class Order(db.Model):
     user = db.relationship('User', backref='orders')
     school = db.relationship('School', backref='orders')
     items = db.relationship('OrderItem', backref='order', cascade='all, delete-orphan')
-    donations = db.relationship('DonationDistribution', back_populates='order', foreign_keys=['DonationDistribution.order_id'], cascade='all, delete-orphan')
+    donations = db.relationship('DonationDistribution', backref='order', foreign_keys=['DonationDistribution.order_id'], cascade='all, delete-orphan')
 
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -227,41 +264,6 @@ class WalletTransaction(db.Model):
     transaction_type = db.Column(db.String(20))  # deposit, payment, donation
     reference = db.Column(db.String(100))  # order_id or donation_id
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-class Donation(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    donor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    donation_type = db.Column(db.String(20))  # monetary, item
-    amount = db.Column(db.Float)  # for monetary donations
-    description = db.Column(db.Text)  # for item donations
-    status = db.Column(db.String(20), default='pending')  # pending, approved, distributed
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    donor = db.relationship('User', foreign_keys=[donor_id])
-    items = db.relationship('DonationItem', backref='donation', cascade='all, delete-orphan')
-    distributions = db.relationship('DonationDistribution', backref='donation', cascade='all, delete-orphan')
-
-class DonationItem(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    donation_id = db.Column(db.Integer, db.ForeignKey('donation.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
-    quantity = db.Column(db.Integer)
-    description = db.Column(db.Text)  # For non-product donations
-    
-    product = db.relationship('Product')
-
-class DonationDistribution(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
-    donation_id = db.Column(db.Integer, db.ForeignKey('donation.id'), nullable=False)
-    recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    amount = db.Column(db.Float)  # For monetary donations
-    item_id = db.Column(db.Integer, db.ForeignKey('donation_item.id'))  # For item donations
-    distributed_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    recipient = db.relationship('User', foreign_keys=[recipient_id])
-    donation_item = db.relationship('DonationItem', foreign_keys=[item_id])
-    order = db.relationship('Order', back_populates='donations_distributions')
 
 class OrderTracking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -295,6 +297,12 @@ class Notification(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     user = db.relationship('User', backref='notifications')
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 def create_admin_user():
     with app.app_context():
