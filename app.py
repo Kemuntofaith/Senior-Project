@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event, Engine
+import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import os
@@ -197,7 +198,7 @@ class Donation(db.Model):
     
     donor = db.relationship('User', foreign_keys=[donor_id])
     items = db.relationship('DonationItem', backref='donation', cascade='all, delete-orphan')
-    distributions = db.relationship('DonationDistribution', backref='donation_rel', cascade='all, delete-orphan')
+    donation_distributions = db.relationship('DonationDistribution', backref='donation_rel', cascade='all, delete-orphan')
 
 class DonationItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -300,6 +301,7 @@ class Notification(db.Model):
 
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
+    if isinstance(dbapi_connection, sqlite3.Connection):    
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
@@ -317,7 +319,7 @@ def create_admin_user():
             admin.set_password('securepassword123')  # Change this!
             db.session.add(admin)
             db.session.commit()
-            print("Initial admin user created!")
+            print("Admin admin user created successfully!")
 
 # ====================== DECORATORS ======================
 def login_required(f):
@@ -1220,9 +1222,7 @@ def internal_error(error):
 
 def initialize_database():
     with app.app_context():
-        db.drop_all()  # Safety measure - ensures no old tables exist
-        db.create_all()  # Creates all tables based on my models
-        
+        db.create_all()         
         print("Database tables created successfully!")
 
 # ====================== MAIN ======================
