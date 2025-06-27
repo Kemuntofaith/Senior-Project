@@ -8,13 +8,12 @@ import random
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://username:password@localhost/back2school'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///back2school.sqlite'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
 # ====================== MODELS ======================
-
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -147,7 +146,6 @@ retailer_school = db.Table('retailer_school',
     db.Column('school_id', db.Integer, db.ForeignKey('school.id'), primary_key=True)
 )
 
-# ===== REPLACE THE EXISTING PRODUCT MODEL WITH THIS =====
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     retailer_id = db.Column(db.Integer, db.ForeignKey('retailer.id'), nullable=False)
@@ -201,7 +199,7 @@ class Order(db.Model):
     user = db.relationship('User', backref='orders')
     school = db.relationship('School', backref='orders')
     items = db.relationship('OrderItem', backref='order', cascade='all, delete-orphan')
-    donations = db.relationship('DonationDistribution', backref='order', cascade='all, delete-orphan')
+    donations = db.relationship('DonationDistribution', back_populates='order', foreign_keys=['DonationDistribution.order_id'], cascade='all, delete-orphan')
 
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -254,6 +252,7 @@ class DonationItem(db.Model):
 
 class DonationDistribution(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
     donation_id = db.Column(db.Integer, db.ForeignKey('donation.id'), nullable=False)
     recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     amount = db.Column(db.Float)  # For monetary donations
@@ -262,6 +261,7 @@ class DonationDistribution(db.Model):
     
     recipient = db.relationship('User', foreign_keys=[recipient_id])
     donation_item = db.relationship('DonationItem', foreign_keys=[item_id])
+    order = db.relationship('Order', back_populates='donations')
 
 class OrderTracking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -295,6 +295,21 @@ class Notification(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     user = db.relationship('User', backref='notifications')
+
+def create_admin_user():
+    with app.app_context():
+        admin_user = User.query.filter_by(role='app_admin').first()
+        if not admin_user:
+            admin = User(
+                username='admin',
+                email='admin@schoolapp.com',
+                role='app_admin',
+                is_approved=True
+            )
+            admin.set_password('securepassword123')  # Change this!
+            db.session.add(admin)
+            db.session.commit()
+            print("Initial admin user created!")
 
 # ====================== DECORATORS ======================
 def login_required(f):
@@ -1205,4 +1220,5 @@ def initialize_database():
 # ====================== MAIN ======================
 if __name__ == '__main__':
     initialize_database()
+    create_admin_user()
     app.run(debug=True)
