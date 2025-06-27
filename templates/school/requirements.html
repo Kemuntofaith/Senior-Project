@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>School Requirements</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRequirementModal">
+            Add Requirement
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            {% if requirements %}
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover">
+                        <thead>
+                            <tr>
+                                <th>Item Name</th>
+                                <th>Description</th>
+                                <th>Quantity</th>
+                                <th>Status</th>
+                                <th>Category</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requirements %}
+                                <tr>
+                                    <td>{{ req.item_name }}</td>
+                                    <td>{{ req.item_description }}</td>
+                                    <td>{{ req.quantity_required }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if req.is_allowed else 'danger' }}">
+                                            {{ 'Allowed' if req.is_allowed else 'Restricted' }}
+                                        </span>
+                                    </td>
+                                    <td>{{ req.category }}</td>
+                                    <td>
+                                        <a href="{{ url_for('delete_requirement', req_id=req.id) }}" class="btn btn-sm btn-danger">Delete</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No requirements added yet</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Add Requirement Modal -->
+<div class="modal fade" id="addRequirementModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Requirement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('add_requirement') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="item_name" class="form-label">Item Name</label>
+                        <input type="text" class="form-control" id="item_name" name="item_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">Quantity Required</label>
+                        <input type="number" class="form-control" id="quantity" name="quantity">
+                    </div>
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Category</label>
+                        <input type="text" class="form-control" id="category" name="category">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_allowed" name="is_allowed" value="true" checked>
+                            <label class="form-check-label" for="is_allowed">
+                                Item is allowed in school
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Add Requirement</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

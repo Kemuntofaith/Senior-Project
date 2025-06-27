@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Approve Retailers</h2>
+    
+    <div class="card">
+        <div class="card-body">
+            {% if retailers %}
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover">
+                        <thead>
+                            <tr>
+                                <th>Business Name</th>
+                                <th>Address</th>
+                                <th>Admin Approved</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for retailer in retailers %}
+                                <tr>
+                                    <td>{{ retailer.business_name }}</td>
+                                    <td>{{ retailer.business_address }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if retailer.is_approved_by_admin else 'warning' }}">
+                                            {{ 'Yes' if retailer.is_approved_by_admin else 'No' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('approve_retailer', retailer_id=retailer.id) }}" class="btn btn-sm btn-success">Approve</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No retailers pending approval</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

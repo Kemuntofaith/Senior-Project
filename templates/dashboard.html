@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 mx-auto text-center">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="card-title">Welcome, {{ user.username }}!</h2>
+                    <p class="card-text">Role: {{ user.role|capitalize }}</p>
+                    
+                    {% if user.role == 'school_admin' and user.school %}
+                        <p class="card-text">School: {{ user.school.name }}</p>
+                        <p class="card-text">Status: {{ 'Approved' if user.school.is_approved else 'Pending Approval' }}</p>
+                    {% endif %}
+                    
+                    {% if user.role == 'retailer' %}
+                        <p class="card-text">Status: 
+                            {% if user.is_approved %}
+                                Approved
+                            {% else %}
+                                Pending Approval
+                            {% endif %}
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if user.role == 'school_admin' %}
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">School Requirements</h5>
+                                <p class="card-text">Manage allowed and restricted items for your school</p>
+                                <a href="{{ url_for('manage_requirements') }}" class="btn btn-primary">Manage</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Approve Retailers</h5>
+                                <p class="card-text">Review and approve retailers for your school</p>
+                                <a href="{{ url_for('approve_retailers') }}" class="btn btn-primary">Review</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
