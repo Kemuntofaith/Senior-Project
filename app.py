@@ -261,7 +261,7 @@ class DonationDistribution(db.Model):
     
     recipient = db.relationship('User', foreign_keys=[recipient_id])
     donation_item = db.relationship('DonationItem', foreign_keys=[item_id])
-    order = db.relationship('Order', back_populates='donations')
+    order = db.relationship('Order', back_populates='donations_distributions')
 
 class OrderTracking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
