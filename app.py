@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import os
 from datetime import datetime
+import random
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
@@ -319,6 +320,16 @@ def role_required(roles):
         return decorated_function
     return decorator
 
+@app.template_filter('datetime')
+def format_datetime(value, format='medium'):
+    if format == 'full':
+        format = "%Y-%m-%d %H:%M:%S"
+    elif format == 'medium':
+        format = "%Y-%m-%d %H:%M"
+    else:
+        format = "%Y-%m-%d"
+    return value.strftime(format)
+
 # ====================== ROUTES ======================
 @app.route('/')
 def home():
@@ -499,6 +510,59 @@ def admin_reports():
                          schools=schools,
                          active_orders=active_orders,
                          recent_donations=recent_donations)
+
+@app.route('/admin/schools')
+@role_required(['app_admin'])
+def admin_schools():
+    schools = School.query.order_by(School.is_approved).all()
+    return render_template('admin/schools.html', schools=schools)
+
+@app.route('/admin/approve-school/<int:school_id>')
+@role_required(['app_admin'])
+def admin_approve_school(school_id):
+    school = School.query.get_or_404(school_id)
+    school.is_approved = True
+    
+    # Activate the school admin account
+    admin_user = User.query.filter_by(school_id=school.id, role='school_admin').first()
+    if admin_user:
+        admin_user.is_approved = True
+        admin_user.add_notification(
+            "School Approved",
+            f"Your school '{school.name}' has been approved",
+            "admin"
+        )
+    
+    db.session.commit()
+    flash(f'School "{school.name}" approved successfully', 'success')
+    return redirect(url_for('admin_schools'))
+
+@app.route('/admin/edit-user/<int:user_id>', methods=['GET', 'POST'])
+@role_required(['app_admin'])
+def admin_edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    if request.method == 'POST':
+        user.role = request.form.get('role', user.role)
+        user.is_approved = request.form.get('is_approved') == 'true'
+        db.session.commit()
+        
+        flash('User updated successfully', 'success')
+        return redirect(url_for('admin_users'))
+    
+    return render_template('admin/edit_user.html', user=user)
+
+@app.route('/admin/system-logs')
+@role_required(['app_admin'])
+def admin_logs():
+    # In a production app, you'd connect to actual system logs
+    # This is a simplified version showing recent activities
+    recent_activities = {
+        'users': User.query.order_by(User.created_at.desc()).limit(5).all(),
+        'orders': Order.query.order_by(Order.created_at.desc()).limit(5).all(),
+        'donations': Donation.query.order_by(Donation.created_at.desc()).limit(5).all()
+    }
+    return render_template('admin/logs.html', activities=recent_activities)
 
 # ====================== SCHOOL REQUIREMENTS ROUTES ======================
 @app.route('/school/requirements')
@@ -1117,8 +1181,28 @@ def clear_notifications():
     flash('Notifications cleared', 'success')
     return redirect(url_for('notifications'))
 
+# ===== ADD ERROR HANDLERS =====
+@app.errorhandler(403)
+def forbidden_error(error):
+    return render_template('errors/403.html'), 403
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('errors/404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template('errors/500.html'), 500
+
+def initialize_database():
+    with app.app_context():
+        db.drop_all()  # Safety measure - ensures no old tables exist
+        db.create_all()  # Creates all tables based on my models
+        
+        print("Database tables created successfully!")
+
 # ====================== MAIN ======================
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
+    initialize_database()
     app.run(debug=True)

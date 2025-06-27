@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">System Logs</h2>
+    
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Users</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% for user in activities.users %}
+                        <li class="list-group-item bg-dark text-white">
+                            {{ user.username }} ({{ user.role }}) 
+                            <small class="text-muted">{{ user.created_at|datetime }}</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Orders</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% for order in activities.orders %}
+                        <li class="list-group-item bg-dark text-white">
+                            #{{ order.id }} - ${{ "%.2f"|format(order.total_amount) }}
+                            <small class="text-muted">{{ order.created_at|datetime }}</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Donations</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% for donation in activities.donations %}
+                        <li class="list-group-item bg-dark text-white">
+                            {{ donation.donation_type }} - 
+                            {% if donation.donation_type == 'monetary' %}
+                                ${{ "%.2f"|format(donation.amount) }}
+                            {% else %}
+                                {{ donation.description|truncate(20) }}
+                            {% endif %}
+                            <small class="text-muted">{{ donation.created_at|datetime }}</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

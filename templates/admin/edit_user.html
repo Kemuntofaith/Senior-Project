@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Edit User: {{ user.username }}</h2>
+                    
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">Role</label>
+                            <select class="form-select" name="role">
+                                {% for role in ['app_admin', 'school_admin', 'parent', 'student', 'retailer', 'donor'] %}
+                                <option value="{{ role }}" {% if user.role == role %}selected{% endif %}>
+                                    {{ role|capitalize }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        {% if user.role in ['school_admin', 'retailer'] %}
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_approved" name="is_approved"
+                                   {% if user.is_approved %}checked{% endif %}>
+                            <label class="form-check-label" for="is_approved">Account Approved</label>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                            <a href="{{ url_for('admin_users') }}" class="btn btn-secondary mt-2">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

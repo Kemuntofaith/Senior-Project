@@ -129,6 +129,20 @@
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{{ url_for('admin_config') }}">System Config</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('admin_reports') }}">Reports</a></li>
+                                <li><h6 class="dropdown-header">User Management</h6></li>
+                                <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">All Users</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('approve_users') }}">Pending Approvals</a></li>
+                                
+                                <li><hr class="dropdown-divider"></li>
+                                <li><h6 class="dropdown-header">Institutions</h6></li>
+                                <li><a class="dropdown-item" href="{{ url_for('admin_schools') }}">Schools</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('admin_retailers') }}">Retailers</a></li>
+                                
+                                <li><hr class="dropdown-divider"></li>
+                                <li><h6 class="dropdown-header">System</h6></li>
+                                <li><a class="dropdown-item" href="{{ url_for('admin_config') }}">Configuration</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('admin_logs') }}">System Logs</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('admin_reports') }}">Reports</a></li>
                             </ul>
                         </li>
                     {% endif %}

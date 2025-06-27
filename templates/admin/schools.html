@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">School Management</h2>
+    
+    <div class="card">
+        <div class="card-header">
+            <h5>School Approvals</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-dark">
+                    <thead>
+                        <tr>
+                            <th>School Name</th>
+                            <th>Address</th>
+                            <th>Admin</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for school in schools %}
+                        <tr>
+                            <td>{{ school.name }}</td>
+                            <td>{{ school.address }}</td>
+                            <td>
+                                {% if school.users %}
+                                    {{ school.users[0].username }}
+                                {% else %}
+                                    No admin
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if school.is_approved else 'warning' }}">
+                                    {{ 'Approved' if school.is_approved else 'Pending' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if not school.is_approved %}
+                                    <a href="{{ url_for('admin_approve_school', school_id=school.id) }}" 
+                                       class="btn btn-sm btn-success">Approve</a>
+                                {% endif %}
+                                <a href="#" class="btn btn-sm btn-info">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
