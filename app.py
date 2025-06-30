@@ -166,7 +166,7 @@ class SchoolRequirement(db.Model):
     school_id = db.Column(db.Integer, db.ForeignKey('school.id'), nullable=False)
     item_name = db.Column(db.String(100), nullable=False)
     item_description = db.Column(db.Text)
-    quantity_required = db.Column(db.string(100))
+    quantity_required = db.Column(db.Integer)
     is_allowed = db.Column(db.Boolean, default=True)
     category = db.Column(db.String(50))
 
@@ -183,8 +183,6 @@ retailer_school = db.Table('retailer_school',
     db.Column('retailer_id', db.Integer, db.ForeignKey('retailer.id'), primary_key=True),
     db.Column('school_id', db.Integer, db.ForeignKey('school.id'), primary_key=True)
 )
-
-
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
