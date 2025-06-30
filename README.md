@@ -1,5 +1,12 @@
 # **BACK TO SCHOOL APP BY MAIRURA FAITH KEMUNTO.** 
 # SUPERVISOR: MR KEVIN MAYAKA
+My app has 5 users:
+1. App administrator
+2. School administrators
+3. Parents/students
+4. Retailers
+5. Students (coming soon)
+6. Donors (coming soon)
 
 ## **PROJECT PROPOSAL**
 ## Background Information 
