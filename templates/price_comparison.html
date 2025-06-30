@@ -39,9 +39,9 @@
                             <td>{{ comp.product.name }}</td>
                             <td>{{ comp.retailer.business_name }}</td>
                             <td>
-                                ${{ "%.2f"|format(comp.price) }}
+                                Kes{{ "%.2f"|format(comp.price) }}
                                 {% if comp.product.original_price and comp.product.original_price > comp.price %}
-                                <small class="text-muted"><s>${{ "%.2f"|format(comp.product.original_price) }}</s></small>
+                                <small class="text-muted"><s>Kes{{ "%.2f"|format(comp.product.original_price) }}</s></small>
                                 {% endif %}
                             </td>
                             <td>{{ "%.1f"|format(comp.distance) }} miles</td>

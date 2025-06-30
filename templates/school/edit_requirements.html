@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Edit School Requirement</h2>
+    <form method="POST">
+        <!-- Form fields for item_name, description, etc., pre-filled with requirement data -->
+        <div class="mb-3">
+            <label for="item_name" class="form-label">Item Name</label>
+            <input type="text" class="form-control" name="item_name" value="{{ requirement.item_name }}">
+        </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="is_allowed" id="is_allowed" {% if requirement.is_allowed %}checked{% endif %}>
+            <label class="form-check-label" for="is_allowed">Is Allowed?</label>
+        </div>
+        <!-- ... other fields like quantity, category, description ... -->
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container text-center">
+    <h2>Who are you shopping for?</h2>
+    <p>Please select a student to begin your shopping session.</p>
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <form method="POST">
+                <div class="mb-3">
+                    <select name="student_id" class="form-select" required>
+                        <option disabled selected value="">-- Select Student --</option>
+                        {% for student in students %}
+                            <option value="{{ student.id }}">{{ student.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Start Shopping</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

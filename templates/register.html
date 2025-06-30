@@ -7,6 +7,11 @@
             <div class="card-body p-5">
                 <h2 class="card-title text-center mb-4">Register</h2>
                 <form method="POST" action="{{ url_for('register') }}">
+                    <div class="text-center mt-3">
+                        <p>Are you a school administrator?</p>
+                        <a href="{{ url_for('register_school') }}" class="btn btn-outline-info">Register Your School Here</a>
+                    </div>
+                    <hr>
                     <div class="mb-3">
                         <label for="username" class="form-label">Username</label>
                         <input type="text" class="form-control" id="username" name="username" required>
@@ -21,14 +26,28 @@
                     </div>
                     <div class="mb-3">
                         <label for="role" class="form-label">Role</label>
-                        <select class="form-select" id="role" name="role" required>
-                            <option value="">Select your role</option>
-                            <option value="parent">Parent</option>
-                            <option value="student">Student</option>
-                            <option value="school_admin">School Admin</option>
-                            <option value="retailer">Retailer</option>
-                            <option value="donor">Donor</option>
+      
+                        <select class="form-select" name="role" required>
+                            <option value="" selected disabled>Select your role...</option>
+                            
+                            {# Loop through every role we want to display #}
+                            {% for role in all_roles %}
+                        
+                                {# Check if the current role is in the list of enabled roles #}
+                                {% if role in allowed_roles %}
+                                    {# If it is allowed, create a normal, selectable option #}
+                                    <option value="{{ role }}">{{ role|capitalize }}</option>
+                                {% else %}
+                                    {# If it is NOT allowed, create a disabled, grayed-out option #}
+                                    <option value="{{ role }}" disabled class="text-muted">
+                                        {{ role|capitalize }} (Coming Soon)
+                                    </option>
+                                {% endif %}
+                        
+                            {% endfor %}
                         </select>
+                        
+                            
                     </div>
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">Register</button>

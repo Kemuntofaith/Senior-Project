@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Tracking Details for Order #{{ order.id }}</h2>
+    <p><strong>Overall Status:</strong> <span class="badge bg-primary">{{ order.status|capitalize }}</span></p>
+    <p><strong>Placed On:</strong> {{ order.created_at|datetime }}</p>
+    <hr>
+
+    <h4 class="mt-4">Item Status Breakdown</h4>
+
+    {% for status, items_in_group in grouped_items.items()|sort %}
+    <div class="card mb-3">
+        <div class="card-header">
+            <strong>Status: {{ status }}</strong>
+        </div>
+        <ul class="list-group list-group-flush">
+            {% for item in items_in_group %}
+            <li class="list-group-item list-group-item-dark">
+                {{ item.product.name }} (Quantity: {{ item.quantity }})
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+        <div class="alert alert-info">No item information available for this order yet.</div>
+    {% endfor %}
+
+    <a href="{{ url_for('order_detail', order_id=order.id) }}" class="btn btn-secondary mt-4">Back to Order Details</a>
+</div>
+{% endblock %}

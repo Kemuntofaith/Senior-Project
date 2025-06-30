@@ -6,7 +6,7 @@
         <div class="col-md-8 mx-auto text-center">
             <div class="card mb-4">
                 <div class="card-body">
-                    <h2 class="card-title">Welcome, {{ user.username }}!</h2>
+                    <h2 class="card-title">Welcome, {{ user.username }}.</h2>
                     <p class="card-text">Role: {{ user.role|capitalize }}</p>
                     
                     {% if user.role == 'school_admin' and user.school %}
@@ -27,6 +27,24 @@
             </div>
             
             {% if user.role == 'school_admin' %}
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Manage Incoming Orders</h5>
+                        <p class="card-text">View orders sent to your school and acknowledge receipt of delivered items.</p>
+                        <a href="{{ url_for('order_list') }}" class="btn btn-success">View Orders</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Student Management</h5>
+                        <p class="card-text">Add, view, and manage students registered at your school.</p>
+                        <a href="{{ url_for('manage_students') }}" class="btn btn-primary">Manage Students</a>
+                    </div>
+                </div>
+            </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <div class="card h-100">
@@ -50,6 +68,24 @@
             {% endif %}
 
             {% if user.role in ['parent', 'student'] %}
+                <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">My Orders</h5>
+                        <p class="card-text">View your order history and track the status of your items.</p>
+                        <a href="{{ url_for('order_list') }}" class="btn btn-info">View My Orders</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Manage My Students</h5>
+                        <p class="card-text">Link your account to your children to shop for them.</p>
+                        <a href="{{ url_for('parent_manage_students') }}" class="btn btn-primary">Manage Students</a>
+                    </div>
+                </div>
+            </div>
                 <div class="row mt-4">
                     <div class="col-md-6 mb-3">
                         <div class="card h-100">
@@ -64,7 +100,14 @@
                         <div class="card h-100">
                             <div class="card-body">
                                 <h5 class="card-title">Wallet</h5>
-                                <p class="card-text">Balance: ${{ "%.2f"|format(user.wallet.balance) }}</p>
+                                <p class="card-text">
+                                    {% if user.wallet %}
+                                        Balance: {{ "%.2f"|format(user.wallet.balance) }}
+                                    {% else %}
+                                        Balance: 0.00
+                                    {% endif %}
+                                </p>
+                                {# <p class="card-text">Balance: {{ "%.2f"|format(user.wallet.balance) }}</p> #}
                                 <a href="{{ url_for('wallet') }}" class="btn btn-primary">View Wallet</a>
                             </div>
                         </div>
@@ -80,43 +123,25 @@
                                 <h5 class="card-title">Donations</h5>
                                 <p class="card-text">Make a donation to support students</p>
                                 <a href="{{ url_for('donate') }}" class="btn btn-primary">Make Donation</a>
-                                <a href="{{ url_for('donation_status') }}" class="btn btn-secondary">View My Donations</a>
+                                <a href="{{ url_for('my_donations') }}" class="btn btn-secondary">View My Donations</a>
+                                {# <a href="{{ url_for('donation_status') }}" class="btn btn-secondary">View My Donations</a> #}
                             </div>
                         </div>
                     </div>
                 </div>
             {% endif %}
-
-            {% if notifications|rejectattr('is_read')|list|count > 0 %}
-                <div class="row mt-4">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header bg-warning text-dark">
-                                <h5 class="mb-0">Unread Notifications</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="list-group">
-                                    {% for notification in notifications|rejectattr('is_read')|sort(attribute='created_at', reverse=True)|slice(3) %}
-                                    <a href="{{ url_for('mark_notification_read', notification_id=notification.id) }}" 
-                                    class="list-group-item list-group-item-action">
-                                        <div class="d-flex w-100 justify-content-between">
-                                            <h6 class="mb-1">{{ notification.title }}</h6>
-                                            <small>{{ notification.created_at|datetime }}</small>
-                                        </div>
-                                        <p class="mb-1">{{ notification.message }}</p>
-                                    </a>
-                                    {% endfor %}
-                                </div>
-                                <div class="text-end mt-3">
-                                    <a href="{{ url_for('notifications') }}" class="btn btn-sm btn-outline-warning">View All Notifications</a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
+            
 
             {% if user.role == 'app_admin' %}
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Product Categories</h5>
+                        <p class="card-text">Manage the global list of product categories.</p>
+                        <a href="{{ url_for('manage_categories') }}" class="btn btn-primary">Manage Categories</a>
+                    </div>
+                </div>
+            </div>
                 <div class="row mt-4">
                     <div class="col-md-4 mb-3">
                         <div class="card h-100">
@@ -130,16 +155,16 @@
                     <div class="col-md-4 mb-3">
                         <div class="card h-100">
                             <div class="card-body text-center">
-                                <h5 class="card-title">School Approvals</h5>
+                                <h5 class="card-title">Approvals</h5>
                                 <p class="card-text">Review and approve new school registrations</p>
-                                <a href="{{ url_for('approve_users') }}" class="btn btn-primary">Review Schools</a>
+                                <a href="{{ url_for('approvals') }}" class="btn btn-primary">Review Schools</a>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4 mb-3">
                         <div class="card h-100">
                             <div class="card-body text-center">
-                                <h5 class="card-title">Retailer Approvals</h5>
+                                <h5 class="card-title">Retailers</h5>
                                 <p class="card-text">Approve retailers before school assignment</p>
                                 <a href="{{ url_for('admin_retailers') }}" class="btn btn-primary">Manage Retailers</a>
                             </div>
@@ -163,6 +188,28 @@
                                 <p class="card-text">View system analytics and reports</p>
                                 <a href="{{ url_for('admin_reports') }}" class="btn btn-secondary">View Reports</a>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if user.role == 'retailer' %}
+            <div class="row mt-4">
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Manage Orders</h5>
+                            <p class="card-text">View incoming orders and update the status of items for shipment to schools.</p>
+                            <a href="{{ url_for('retailer_orders') }}" class="btn btn-primary">Process Orders</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">My Products</h5>
+                            <p class="card-text">Add, edit, and manage the products you have for sale.</p>
+                            <a href="{{ url_for('retailer_products') }}" class="btn btn-secondary">Manage Products</a>
                         </div>
                     </div>
                 </div>

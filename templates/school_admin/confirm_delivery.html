@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Confirm Delivery for Order #{{ order.id }}</h2>
+    <p>
+        <strong>Parent:</strong> {{ order.user.username }} | 
+        <strong>Student Beneficiary:</strong> {{ order.student.username if order.student else 'N/A' }}
+    </p>
+    <p>Review the items below and check the box for each item that has been physically received at the school. This action is final.</p>
+    <hr>
+
+    <form method="POST">
+        <div class="list-group">
+            {% for item in order.items %}
+            <div class="list-group-item list-group-item-dark">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <strong>{{ item.product.name }}</strong> (x{{ item.quantity }})
+                        <br>
+                        <small>Retailer: {{ item.product.retailer.business_name }}</small>
+                    </div>
+                    <div class="col-md-3 text-md-center">
+                        <span class="badge 
+                            {% if item.status == 'Delivered' %} bg-success
+                            {% elif item.status == 'Shipped to School' %} bg-warning text-dark
+                            {% else %} bg-secondary
+                            {% endif %}">
+                            {{ item.status }}
+                        </span>
+                    </div>
+                    <div class="col-md-3 text-md-end">
+                        {% if item.status == 'Shipped to School' %}
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" name="delivered_{{ item.id }}" id="delivered_{{ item.id }}">
+                            <label class="form-check-label" for="delivered_{{ item.id }}">
+                                Acknowledge Receipt
+                            </label>
+                        </div>
+                        {% elif item.status == 'Delivered' %}
+                            <!-- Item is already delivered, do nothing -->
+                        {% else %}
+                            <small class="text-muted">Awaiting shipment</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="text-end">
+             <button type="submit" class="btn btn-primary mt-4">Confirm Received Items</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

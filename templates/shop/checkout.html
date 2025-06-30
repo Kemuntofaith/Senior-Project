@@ -37,9 +37,9 @@
                                 {% for item in cart.items %}
                                 <tr>
                                     <td>{{ item.product.name }}</td>
-                                    <td>${{ "%.2f"|format(item.product.price) }}</td>
+                                    <td>Kes{{ "%.2f"|format(item.product.price) }}</td>
                                     <td>{{ item.quantity }}</td>
-                                    <td>${{ "%.2f"|format(item.product.price * item.quantity) }}</td>
+                                    <td>Kes{{ "%.2f"|format(item.product.price * item.quantity) }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -55,8 +55,8 @@
                     <h5>Payment</h5>
                 </div>
                 <div class="card-body">
-                    <p>Wallet Balance: ${{ "%.2f"|format(current_user.wallet.balance) }}</p>
-                    <p>Order Total: ${{ "%.2f"|format(total) }}</p>
+                    <p>Wallet Balance: Kes{{ "%.2f"|format(current_user.wallet.balance) }}</p>
+                    <p>Order Total: Kes{{ "%.2f"|format(total) }}</p>
                     <hr>
                     {% if current_user.wallet.balance >= total %}
                     <form method="POST">

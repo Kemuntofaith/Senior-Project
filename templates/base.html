@@ -9,6 +9,13 @@
         body {
             background-color: #121212;
             color: #ffffff;
+            
+        }
+        h1, h2, h3, h4, h5, h6, span, p {
+            color: #ffffff !important;
+        }
+        a {
+            color:rgb(191, 215, 250) !important;
         }
         .navbar {
             background-color: #1a1a1a !important;
@@ -81,86 +88,75 @@
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('home') }}">Back to School</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    {% if 'user_id' in session %}
+      
+<nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container">
+        <a class="navbar-brand" href="{{ url_for('home') }}">Back to School</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            
+            {# --- START OF FIX --- #}
+            {# The class is "navbar-nav", not "na   vbar-nav" #}
+            <ul class="navbar-nav ms-auto">
+                {% if 'user_id' in session %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                    </li>
+                    {% if session.shopping_for_student_id %}
+                    <li class="nav-item">
+                        <div class="nav-link text-warning d-flex align-items-center">
+                            <span>Shopping for: {{ session.shopping_for_student_username }}</span>
+                            <a href="{{ url_for('clear_cart') }}" class="btn btn-sm btn-outline-warning ms-2" title="End Shopping Session">
+                                Drop
+                            </a>
+                        </div>
+                    </li>
+                {% endif %}                    
+                    {# Cart link now uses the efficient context processor variable #}
+                    {% if session['role'] in ['parent', 'student'] %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('cart') }}">
+                            Cart
+                            {% if cart_item_count > 0 %}
+                                <span id="cart-item-count-badge" class="badge rounded-pill bg-primary">{{ cart_item_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {# Other role-specific links #}
+                    {% if session['role'] == 'school_admin' %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
-                        </li>
-                        {% if session['role'] == 'school_admin' %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('manage_requirements') }}">Requirements</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('approve_retailers') }}">Approve Retailers</a>
-                            </li>
-                        {% endif %}
-                        {% if session['role'] == 'app_admin' %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('approve_users') }}">Approve Users</a>
-                            </li>
-                        {% endif %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('login') }}">Login</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('register') }}">Register</a>
+                            <a class="nav-link" href="{{ url_for('manage_requirements') }}">Requirements</a>
                         </li>
                     {% endif %}
-                    {% if 'user_id' in session and session['role'] == 'app_admin' %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
-                                Admin
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="adminDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">User Management</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('admin_retailers') }}">Retailer Approvals</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('approve_users') }}">School Approvals</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('admin_config') }}">System Config</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('admin_reports') }}">Reports</a></li>
-                            </ul>
-                        </li>
-                    {% endif %}                                        
-                    {% if 'user_id' in session %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="notificationsDropdown" role="button" data-bs-toggle="dropdown">
-                                Notifications
-                                {% if current_user.notifications|rejectattr('is_read')|list|count > 0 %}
-                                <span class="badge bg-danger">{{ current_user.notifications|rejectattr('is_read')|list|count }}</span>
-                                {% endif %}
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="notificationsDropdown">
-                                {% for notification in current_user.notifications|sort(attribute='created_at', reverse=True)|slice(5) %}
-                                <li>
-                                    <a class="dropdown-item {{ 'text-muted' if notification.is_read }}" 
-                                    href="{{ url_for('mark_notification_read', notification_id=notification.id) }}">
-                                        <strong>{{ notification.title }}</strong>
-                                        <small class="d-block">{{ notification.message|truncate(30) }}</small>
-                                    </a>
-                                </li>
-                                {% else %}
-                                <li><a class="dropdown-item" href="#">No notifications</a></li>
-                                {% endfor %}
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('notifications') }}">View all</a></li>
-                            </ul>
+                    {% if session['role'] == 'app_admin' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('approvals') }}">Approvals</a>
                         </li>
                     {% endif %}
-                </ul>
-            </div>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                    </li>
+
+                {% else %} {# User is not logged in #}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('register') }}">Register</a>
+                    </li>
+                {% endif %}
+            </ul>
+            {# --- END OF FIX --- #}
         </div>
-    </nav>
+    </div>
+</nav>
+
+    
 
     <div class="container mt-4">
         {% with messages = get_flashed_messages(with_categories=true) %}

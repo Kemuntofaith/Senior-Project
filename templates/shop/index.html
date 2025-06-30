@@ -1,29 +1,124 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div id="toast-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1050;"></div>
 <div class="container">
-    <h2 class="mb-4">Shop for School Supplies</h2>
+          
+<h2 class="mb-3">Shop for {{ student.username }} at {{ student.school.name }}</h2>
+
+    
+
+    <!-- Filter Form -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('shop') }}">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <input type="text" name="search_query" class="form-control" placeholder="Search by name..." value="{{ search_query or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="category_id" class="form-select">
+                            <option value="">All Categories</option>
+                            {% for cat in categories %}
+                                <option value="{{ cat.id }}" {% if cat.id == category_id %}selected{% endif %}>{{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" name="min_price" class="form-control" placeholder="Min Price" value="{{ min_price or '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" name="max_price" class="form-control" placeholder="Max Price" value="{{ max_price or '' }}">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-primary">Filter</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
     
     <div class="row">
-        {% for product in products %}
-        <div class="col-md-4 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">{{ product.name }}</h5>
-                    <p class="card-text">{{ product.description }}</p>
-                    <p class="card-text">Price: ${{ "%.2f"|format(product.price) }}</p>
-                    <p class="card-text">Available: {{ product.quantity }}</p>
-                    <form method="POST" action="{{ url_for('cart') }}">
-                        <input type="hidden" name="product_id" value="{{ product.id }}">
-                        <div class="input-group mb-3">
-                            <input type="number" name="quantity" class="form-control" value="1" min="1" max="{{ product.quantity }}">
-                            <button class="btn btn-primary" type="submit">Add to Cart</button>
-                        </div>
-                    </form>
-                </div>
+    {% for product in products %}
+    <div class="col">
+        <div class="card h-100" {% if not product.is_allowed %} style="opacity: 0.5;" {% endif %}>
+            <div class="card-body">
+                <h5 class="card-title">{{ product.name }}</h5>
+                <p class="card-text">Kes{{ "%.2f"|format(product.price) }}</p>
+                
+                <form method="POST" action="{{ url_for('cart') }}">
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    <button type="submit" class="btn btn-primary" {% if not product.is_allowed %} disabled {% endif %}>
+                        Add to Cart
+                    </button>
+                    {% if not product.is_allowed %}
+                        <small class="d-block text-danger mt-2">Item not on school requirement list.</small>
+                    {% endif %}
+                </form>
             </div>
         </div>
-        {% endfor %}
+    </div>
+    {% endfor %}
     </div>
 </div>
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+// Function to show a message "toast"
+function showToast(message, isSuccess) {
+    const toastContainer = document.getElementById('toast-container');
+    const toastId = 'toast-' + Date.now();
+    const alertClass = isSuccess ? 'alert-success' : 'alert-danger';
+    const toastHTML = `
+        <div id="${toastId}" class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>`;
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+
+    // Automatically remove the toast after 5 seconds
+    setTimeout(() => {
+        const toastElement = document.getElementById(toastId);
+        if (toastElement) {
+            new bootstrap.Alert(toastElement).close();
+        }
+    }, 5000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const forms = document.querySelectorAll('.add-to-cart-form');
+    
+    forms.forEach(form => {
+        form.addEventListener('submit', function(event) {
+            event.preventDefault(); // Stop page reload
+            
+            const productId = form.querySelector('input[name=product_id]').value;
+            const quantity = form.querySelector('input[name=quantity]').value;
+            
+            fetch("{{ url_for('api_add_to_cart') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ productId: productId, quantity: quantity })
+            })
+            .then(response => response.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) {
+                    const cartBadge = document.getElementById('cart-item-count-badge');
+                    if (cartBadge) {
+                        cartBadge.textContent = data.cartItemCount;
+                        cartBadge.style.display = 'inline-block';
+                    }
+                }
+            })
+            .catch(error => {
+                showToast('A network error occurred.', false);
+                console.error('Error:', error);
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -3,42 +3,53 @@
 {% block content %}
 <div class="container">
     <h2 class="mb-4">Your Shopping Cart</h2>
-    
-    {% if cart.items %}
-    <div class="table-responsive">
-        <table class="table table-dark">
-            <thead>
-                <tr>
-                    <th>Product</th>
-                    <th>Price</th>
-                    <th>Quantity</th>
-                    <th>Total</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in cart.items %}
-                <tr>
-                    <td>{{ item.product.name }}</td>
-                    <td>${{ "%.2f"|format(item.product.price) }}</td>
-                    <td>{{ item.quantity }}</td>
-                    <td>${{ "%.2f"|format(item.product.price * item.quantity) }}</td>
-                    <td>
-                        <a href="{{ url_for('remove_from_cart', item_id=item.id) }}" class="btn btn-sm btn-danger">Remove</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
-                    <td>${{ "%.2f"|format(cart.items|sum(attribute='total_price')) }}</td>
-                    <td>
-                        <a href="{{ url_for('checkout') }}" class="btn btn-success">Checkout</a>
-                    </td>
-                </tr>
-            </tfoot>
-        </table>
+
+    {% if cart and cart.items %}
+    <form action="{{ url_for('update_cart') }}" method="POST">
+        <div class="table-responsive">
+            <table class="table table-dark">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th style="width: 15%;">Price</th>
+                        <th style="width: 15%;">Quantity</th>
+                        <th style="width: 15%;">Total</th>
+                        <th style="width: 10%;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cart.items %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td>Kes{{ "%.2f"|format(item.product.price) }}</td>
+                        <td>
+                            {# THIS IS THE EDITABLE QUANTITY INPUT #}
+                            <input type="number" class="form-control" name="quantity_{{ item.id }}" value="{{ item.quantity }}" min="0">
+                        </td>
+                        <td>Kes{{ "%.2f"|format(item.product.price * item.quantity) }}</td>
+                        <td>
+                            {# The "Remove" link now effectively sets quantity to 0 #}
+                            <a href="{{ url_for('remove_from_cart', item_id=item.id) }}" class="btn btn-sm btn-outline-danger">Remove</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <a href="{{ url_for('clear_cart') }}" class="btn btn-danger">Clear Entire Cart</a>
+            <div>
+                {# The Update button submits the form with new quantities #}
+                <button type="submit" class="btn btn-primary me-2">Update Cart</button>
+                <a href="{{ url_for('checkout') }}" class="btn btn-success">Proceed to Checkout</a>
+            </div>
+        </div>
+    </form>
+    <div class="row mt-3">
+         <div class="col-12 text-end">
+            <h4><strong>Total: Kes{{ "%.2f"|format(total_price) }}</strong></h4>
+         </div>
     </div>
     {% else %}
     <div class="alert alert-info">

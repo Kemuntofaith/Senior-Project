@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="max-width: 800px;">
+    <div class="card">
+        <div class="card-header text-center">
+            <h2>Receipt / Order Confirmation</h2>
+        </div>
+        <div class="card-body">
+            <p><strong>Order ID:</strong> #{{ order.id }}</p>
+            <p><strong>Order Date:</strong> {{ order.created_at|datetime('full') }}</p>
+            <p>
+                <strong>Parent:</strong> {{ order.user.username }} | 
+                <strong>Student Beneficiary:</strong> {{ order.student.username if order.student else 'N/A' }}
+            </p>
+            <p><strong>School:</strong> {{ order.school.name }}</p>
+            <hr>
+            <h4>Items Ordered</h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Quantity</th>
+                        <th class="text-end">Price</th>
+                        <th class="text-end">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for item in order.items %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td class="text-end">Kes{{ "%.2f"|format(item.price) }}</td>
+                        <td class="text-end">Kes{{ "%.2f"|format(item.price * item.quantity) }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-end"><strong>Total Amount:</strong></td>
+                        <td class="text-end"><strong>Kes{{ "%.2f"|format(order.total_amount) }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="text-end">Paid via {{ order.payment_method|capitalize }}:</td>
+                        <td class="text-end">Kes{{ "%.2f"|format(order.total_amount) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div class="text-center mt-4">
+                <button onclick="window.print()" class="btn btn-primary">Print Receipt</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -9,7 +9,7 @@
     
     <div class="card mb-4">
         <div class="card-body">
-            <h3 class="card-title">Balance: ${{ "%.2f"|format(wallet.balance) }}</h3>
+            <h3 class="card-title">Balance: Kes{{ "%.2f"|format(wallet.balance) }}</h3>
         </div>
     </div>
     
@@ -35,7 +35,7 @@
                             <td>{{ tx.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                             <td>{{ tx.transaction_type|capitalize }}</td>
                             <td class="{{ 'text-success' if tx.amount > 0 else 'text-danger' }}">
-                                ${{ "%.2f"|format(tx.amount) }}
+                                Kes{{ "%.2f"|format(tx.amount) }}
                             </td>
                             <td>{{ tx.reference }}</td>
                         </tr>
