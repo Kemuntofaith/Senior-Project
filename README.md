@@ -119,6 +119,6 @@ notifications.
 4. Time constraints did not allow for the completion of all modules to work as expected.
 
 ## **FUTURE IMPROVEMENTS**
-1. once i work out a way for students to access devices in the schools, a student module will be added to have the students confirm they received all the items they shopped for. 
+1. once i work out a way for students to access devices in the schools, a student module will be added to have the students confirm they received all the items they shopped for in the mean time i will add a complaints button for the school administration or parents to raise concerns on behalf of students. 
 2. a donor module will be added where parents and well wishers may donate items, money, food and even vouchers to students and schools for the sake of providing for students without and ensuring that schools are able to sustain students while hopefully reducing cost for all parties. 
 
