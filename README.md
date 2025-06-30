@@ -3,14 +3,14 @@
 
 ## **PROJECT PROPOSAL**
 ## Background Information 
-###### In Kenya, a majority of high school students are boarders travelling from various regions to stay 
+In Kenya, a majority of high school students are boarders travelling from various regions to stay 
 at school for full academic terms. Each school opening period places a heavy logistical and 
 financial burden on all shareholders. Parents put a lot of effort to ensure that their children 
 have everything they need – from shopping for personal items, books and uniforms to paying 
 school fees and arranging for transport. All these responsibilities and expenses coincide at the 
 same time putting a lot of pressure on parents both financially and emotionally.  
 
-###### Since most students study far from their homes, mostly in different cities or counties, they 
+Since most students study far from their homes, mostly in different cities or counties, they 
 often face the physical challenge of travelling long distances with heavy luggage packed with 
 their supplies for the entire term. It is not only tiring, but there is also the risk of misplacing 
 items or forgetting to buy some essential items. Since most schools are located in rural and 
@@ -19,20 +19,20 @@ forces students to travel back into the nearest towns to get the items or have t
 someone to send whatever items they may have forgotten adding to the cost and 
 inconvenience.  
 
-###### Schools also face difficulties in enforcing their supply policies as students may knowingly or 
+Schools also face difficulties in enforcing their supply policies as students may knowingly or 
 unknowingly carry restricted or excess items. Checking each student’s shopping manually takes 
 time and is not always effective thus discipline and security concerns arise. There is also not a 
 very clear system to communicate shopping requirements or changes thereof to parents ahead 
 of time in a reliable and standardized way. 
 
-###### Retailers and supermarkets feel the pressure of this period too. Since all back to school 
+Retailers and supermarkets feel the pressure of this period too. Since all back to school 
 shopping happens within a short window, they struggle with demand fluctuations and 
 expensive advertising campaigns that may not yield effective returns as even with all these 
 efforts, not all parents know where the best deals are. Some end up spending more than 
 necessary and retailers often struggle with stock levels because they cannot always accurately 
 predict demand.  
 
-###### Another issue that often goes unnoticed happens when students are done with school. Parents 
+Another issue that often goes unnoticed happens when students are done with school. Parents 
 end up with numerous schools supplies that are still in good-condition that are no longer useful 
 to them. Sadly, most of these items are either stored away or thrown out yet there are many 
 students from low income homes who would greatly benefit from them. There is currently no 
