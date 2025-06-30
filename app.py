@@ -166,7 +166,7 @@ class SchoolRequirement(db.Model):
     school_id = db.Column(db.Integer, db.ForeignKey('school.id'), nullable=False)
     item_name = db.Column(db.String(100), nullable=False)
     item_description = db.Column(db.Text)
-    quantity_required = db.Column(db.Integer)
+    quantity_required = db.Column(db.string)
     is_allowed = db.Column(db.Boolean, default=True)
     category = db.Column(db.String(50))
 
