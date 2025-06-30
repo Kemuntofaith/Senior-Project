@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
-from flask_login import current_user 
+from flask_login import current_user
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event, Engine
 import sqlite3
