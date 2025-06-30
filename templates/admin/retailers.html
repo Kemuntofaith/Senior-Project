@@ -24,22 +24,47 @@
                         {% for retailer in retailers %}
                         <tr>
                             <td>{{ retailer.business_name }}</td>
-                            <td>{{ retailer.user.username }}</td>
                             <td>
                                 <span class="badge bg-{{ 'success' if retailer.is_approved_by_admin else 'warning' }}">
                                     {{ 'Yes' if retailer.is_approved_by_admin else 'No' }}
                                 </span>
                             </td>
+                            <td>{{ retailer.approved_schools|length }} schools</td>
                             <td>
-                                {{ retailer.approved_schools|length }} schools
-                            </td>
-                            <td>
+                                <!-- Button to trigger the modal -->
+                                <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#schoolsModal{{ retailer.id }}">
+                                    View
+                                </button>
+
                                 {% if not retailer.is_approved_by_admin %}
                                     <a href="{{ url_for('admin_approve_retailer', retailer_id=retailer.id) }}" class="btn btn-sm btn-success">Approve</a>
                                 {% endif %}
-                                <a href="#" class="btn btn-sm btn-info">View</a>
                             </td>
                         </tr>
+                        <div class="modal fade" id="schoolsModal{{ retailer.id }}" tabindex="-1" aria-labelledby="schoolsModalLabel{{ retailer.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="schoolsModalLabel{{ retailer.id }}">Approved Schools for {{ retailer.business_name }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        {% if retailer.approved_schools %}
+                                            <ul class="list-group">
+                                                {% for school in retailer.approved_schools %}
+                                                    <li class="list-group-item">{{ school.name }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% else %}
+                                            <p>This retailer has not been approved by any schools yet.</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         {% endfor %}
                     </tbody>
                 </table>

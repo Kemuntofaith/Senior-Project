@@ -1,16 +1,28 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask_login import (LoginManager, UserMixin, login_user, logout_user, login_required, current_user)
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import event, Engine
+import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import os
 from datetime import datetime
+import random
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://username:password@localhost/back2school'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///back2school.sqlite'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'  
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # ====================== MODELS ======================
 class User(db.Model):
@@ -24,8 +36,8 @@ class User(db.Model):
     
     # Relationships
     school_id = db.Column(db.Integer, db.ForeignKey('school.id'))
-    school = db.relationship('School', backref='users')
-  
+    school = db.relationship('School', backref='users', uselist=False)
+    
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
@@ -47,11 +59,73 @@ class User(db.Model):
         db.session.add(notification)
         db.session.commit()
         return notification
- 
+    
     def get_retailer(self):
         if self.role == 'retailer':
             return Retailer.query.filter_by(user_id=self.id).first()
         return None
+
+def check_compliance(items, school_id):
+    """Check items against school requirements"""
+    non_compliant = []
+    requirements = SchoolRequirement.query.filter_by(school_id=school_id).all()
+    
+    for item in items:
+        # Check if item is restricted
+        req = next((r for r in requirements if r.item_name.lower() in item.product.name.lower()), None)
+        if req and not req.is_allowed:
+            non_compliant.append({
+                'product': item.product,
+                'reason': f'Restricted item: {req.item_name}'
+            })
+        
+        # Check quantity limits if specified
+        if req and req.quantity_required and item.quantity > req.quantity_required:
+            non_compliant.append({
+                'product': item.product,
+                'reason': f'Quantity exceeds school limit of {req.quantity_required}'
+            })
+    
+    return non_compliant
+
+def compare_prices(product_name, school_id):
+    """Compare prices across retailers for a product"""
+    school = School.query.get(school_id)
+    if not school:
+        return []
+    
+    # Get all approved retailers for this school
+    retailers = Retailer.query.filter(Retailer.approved_schools.any(id=school_id)).all()
+    retailer_ids = [r.id for r in retailers]
+    
+    # Find matching products
+    products = Product.query.filter(Product.name.ilike(f'%{product_name}%'),
+                                  Product.retailer_id.in_(retailer_ids),
+                                  Product.quantity > 0).all()
+    
+    comparisons = []
+    for product in products:
+        retailer = next(r for r in retailers if r.id == product.retailer_id)
+        distance = calculate_distance(school.address, retailer.business_address)
+        
+        comparison = {
+            'product': product,
+            'retailer': retailer,
+            'price': product.price,
+            'distance': distance,
+            'is_best_price': product.price == product.best_price
+        }
+        comparisons.append(comparison)
+    
+    # Sort by price then distance
+    comparisons.sort(key=lambda x: (x['price'], x['distance']))
+    return comparisons
+
+def calculate_distance(address1, address2):
+    """Simplified distance calculation - in a real app, use geocoding API"""
+    # This is a placeholder - implement real distance calculation
+    return random.uniform(0.5, 10.0)  # Random distance for demo
+
     
 class School(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -132,8 +206,8 @@ class Donation(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     donor = db.relationship('User', foreign_keys=[donor_id])
-    items = db.relationship('DonationItem', backref='donation', cascade='all, delete-orphan')
-    distributions = db.relationship('DonationDistribution', backref='donation', cascade='all, delete-orphan')
+    items = db.relationship('DonationItem', backref='item_source', cascade='all, delete-orphan')
+    distributions = db.relationship('DonationDistribution', backref='donation_source', cascade='all, delete-orphan')
 
 class DonationItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -148,11 +222,14 @@ class DonationDistribution(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     donation_id = db.Column(db.Integer, db.ForeignKey('donation.id'), nullable=False)
     recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    amount = db.Column(db.Float)  # For monetary donations
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
+    amount = db.Column(db.Float)  
     item_id = db.Column(db.Integer, db.ForeignKey('donation_item.id'))  # For item donations
     distributed_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    donation = db.relationship('Donation', foreign_keys=[donation_id])
     recipient = db.relationship('User', foreign_keys=[recipient_id])
+    order = db.relationship('Order', foreign_keys=[order_id])
     donation_item = db.relationship('DonationItem', foreign_keys=[item_id])
 
 class Order(db.Model):
@@ -169,7 +246,7 @@ class Order(db.Model):
     user = db.relationship('User', backref='orders')
     school = db.relationship('School', backref='orders')
     items = db.relationship('OrderItem', backref='order', cascade='all, delete-orphan')
-    donations = db.relationship('DonationDistribution', backref='order', cascade='all, delete-orphan')
+    donation_distribution = db.relationship('DonationDistribution', foreign_keys=[DonationDistribution.order_id], viewonly=True, cascade='all, delete-orphan')
 
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -179,16 +256,6 @@ class OrderItem(db.Model):
     price = db.Column(db.Float, nullable=False)
     
     product = db.relationship('Product')
-
-class OrderTracking(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
-    status = db.Column(db.String(20))  # processing, packed, shipped, delivered
-    location = db.Column(db.String(100))
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    notes = db.Column(db.Text)
-    
-    order = db.relationship('Order', backref='tracking_updates')
 
 class Wallet(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -207,6 +274,16 @@ class WalletTransaction(db.Model):
     transaction_type = db.Column(db.String(20))  # deposit, payment, donation
     reference = db.Column(db.String(100))  # order_id or donation_id
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class OrderTracking(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
+    status = db.Column(db.String(20))  # processing, packed, shipped, delivered
+    location = db.Column(db.String(100))
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    notes = db.Column(db.Text)
+    
+    order = db.relationship('Order', backref='tracking_updates')
 
 class PriceComparison(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -231,66 +308,27 @@ class Notification(db.Model):
     
     user = db.relationship('User', backref='notifications')
 
-def check_compliance(items, school_id):
-    """Check items against school requirements"""
-    non_compliant = []
-    requirements = SchoolRequirement.query.filter_by(school_id=school_id).all()
-    
-    for item in items:
-        # Check if item is restricted
-        req = next((r for r in requirements if r.item_name.lower() in item.product.name.lower()), None)
-        if req and not req.is_allowed:
-            non_compliant.append({
-                'product': item.product,
-                'reason': f'Restricted item: {req.item_name}'
-            })
-        
-        # Check quantity limits if specified
-        if req and req.quantity_required and item.quantity > req.quantity_required:
-            non_compliant.append({
-                'product': item.product,
-                'reason': f'Quantity exceeds school limit of {req.quantity_required}'
-            })
-    
-    return non_compliant
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if isinstance(dbapi_connection, sqlite3.Connection):    
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
-def compare_prices(product_name, school_id):
-    """Compare prices across retailers for a product"""
-    school = School.query.get(school_id)
-    if not school:
-        return []
-    
-    # Get all approved retailers for this school
-    retailers = Retailer.query.filter(Retailer.approved_schools.any(id=school_id)).all()
-    retailer_ids = [r.id for r in retailers]
-    
-    # Find matching products
-    products = Product.query.filter(Product.name.ilike(f'%{product_name}%'),
-                                  Product.retailer_id.in_(retailer_ids),
-                                  Product.quantity > 0).all()
-    
-    comparisons = []
-    for product in products:
-        retailer = next(r for r in retailers if r.id == product.retailer_id)
-        distance = calculate_distance(school.address, retailer.business_address)
-        
-        comparison = {
-            'product': product,
-            'retailer': retailer,
-            'price': product.price,
-            'distance': distance,
-            'is_best_price': product.price == product.best_price
-        }
-        comparisons.append(comparison)
-    
-    # Sort by price then distance
-    comparisons.sort(key=lambda x: (x['price'], x['distance']))
-    return comparisons
-
-def calculate_distance(address1, address2):
-    """Simplified distance calculation - in a real app, use geocoding API"""
-    # This is a placeholder - implement real distance calculation
-    return random.uniform(0.5, 10.0)  # Random distance for demo
+def create_admin_user():
+    with app.app_context():
+        admin_user = User.query.filter_by(role='app_admin').first()
+        if not admin_user:
+            admin = User(
+                username='admin',
+                email='admin@schoolapp.com',
+                role='app_admin',
+                is_approved=True
+            )
+            admin.set_password('securepassword123')  # Change this!
+            db.session.add(admin)
+            db.session.commit()
+            print("Admin user created successfully!")
 
 # ====================== DECORATORS ======================
 def login_required(f):
@@ -315,6 +353,16 @@ def role_required(roles):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+@app.template_filter('datetime')
+def format_datetime(value, format='medium'):
+    if format == 'full':
+        format = "%Y-%m-%d %H:%M:%S"
+    elif format == 'medium':
+        format = "%Y-%m-%d %H:%M"
+    else:
+        format = "%Y-%m-%d"
+    return value.strftime(format)
 
 # ====================== ROUTES ======================
 @app.route('/')
@@ -496,6 +544,59 @@ def admin_reports():
                          schools=schools,
                          active_orders=active_orders,
                          recent_donations=recent_donations)
+
+@app.route('/admin/schools')
+@role_required(['app_admin'])
+def admin_schools():
+    schools = School.query.order_by(School.is_approved).all()
+    return render_template('admin/schools.html', schools=schools)
+
+@app.route('/admin/approve-school/<int:school_id>')
+@role_required(['app_admin'])
+def admin_approve_school(school_id):
+    school = School.query.get_or_404(school_id)
+    school.is_approved = True
+    
+    # Activate the school admin account
+    admin_user = User.query.filter_by(school_id=school.id, role='school_admin').first()
+    if admin_user:
+        admin_user.is_approved = True
+        admin_user.add_notification(
+            "School Approved",
+            f"Your school '{school.name}' has been approved",
+            "admin"
+        )
+    
+    db.session.commit()
+    flash(f'School "{school.name}" approved successfully', 'success')
+    return redirect(url_for('admin_schools'))
+
+@app.route('/admin/edit-user/<int:user_id>', methods=['GET', 'POST'])
+@role_required(['app_admin'])
+def admin_edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    if request.method == 'POST':
+        user.role = request.form.get('role', user.role)
+        user.is_approved = request.form.get('is_approved') == 'true'
+        db.session.commit()
+        
+        flash('User updated successfully', 'success')
+        return redirect(url_for('admin_users'))
+    
+    return render_template('admin/edit_user.html', user=user)
+
+@app.route('/admin/system-logs')
+@role_required(['app_admin'])
+def admin_logs():
+    # In a production app, you'd connect to actual system logs
+    # This is a simplified version showing recent activities
+    recent_activities = {
+        'users': User.query.order_by(User.created_at.desc()).limit(5).all(),
+        'orders': Order.query.order_by(Order.created_at.desc()).limit(5).all(),
+        'donations': Donation.query.order_by(Donation.created_at.desc()).limit(5).all()
+    }
+    return render_template('admin/logs.html', activities=recent_activities)
 
 # ====================== SCHOOL REQUIREMENTS ROUTES ======================
 @app.route('/school/requirements')
@@ -751,28 +852,6 @@ def checkout():
     
     total = sum(item.product.price * item.quantity for item in cart.items)
     return render_template('shop/checkout.html', cart=cart, total=total)
-
-def check_compliance(cart, school_id):
-    non_compliant = []
-    requirements = SchoolRequirement.query.filter_by(school_id=school_id).all()
-    
-    for item in cart.items:
-        # Check if item is restricted
-        req = next((r for r in requirements if r.item_name.lower() == item.product.name.lower()), None)
-        if req and not req.is_allowed:
-            non_compliant.append({
-                'product': item.product,
-                'reason': 'This item is restricted by your school'
-            })
-        
-        # Check quantity limits if specified
-        if req and req.quantity_required and item.quantity > req.quantity_required:
-            non_compliant.append({
-                'product': item.product,
-                'reason': f'Quantity exceeds school limit of {req.quantity_required}'
-            })
-    
-    return non_compliant
 
 # ====================== SAVINGS WALLET ROUTES ======================
 @app.route('/wallet')
@@ -1136,8 +1215,28 @@ def clear_notifications():
     flash('Notifications cleared', 'success')
     return redirect(url_for('notifications'))
 
+# ===== ADD ERROR HANDLERS =====
+@app.errorhandler(403)
+def forbidden_error(error):
+    return render_template('errors/403.html'), 403
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('errors/404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template('errors/500.html'), 500
+
+def initialize_database():
+    with app.app_context():
+        db.drop_all()
+        db.create_all()         
+        print("Database tables created successfully!")
+
 # ====================== MAIN ======================
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
+    initialize_database()
+    create_admin_user()
     app.run(debug=True)

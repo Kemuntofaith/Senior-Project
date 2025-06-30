@@ -11,13 +11,13 @@
                     <div class="mb-4">
                         <p><strong>Type:</strong> {{ donation.donation_type|capitalize }}</p>
                         {% if donation.donation_type == 'monetary' %}
-                        <p><strong>Amount:</strong> ${{ "%.2f"|format(donation.amount) }}</p>
+                        <p><strong>Amount:</strong> Kes{{ "%.2f"|format(donation.amount) }}</p>
                         {% else %}
                         <p><strong>Description:</strong> {{ donation.description }}</p>
                         {% endif %}
                         <p><strong>Available:</strong> 
                             {% if donation.donation_type == 'monetary' %}
-                                ${{ "%.2f"|format(donation.amount - (donation.distributions|sum(attribute='amount') or 0)) }}
+                                Kes{{ "%.2f"|format(donation.amount - (donation.distributions|sum(attribute='amount') or 0)) }}
                             {% else %}
                                 {{ donation.items|length }} items
                             {% endif %}

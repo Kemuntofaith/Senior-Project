@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Incoming Orders</h2>
+    {% if orders_dict %}
+        {% for order_id, data in orders_dict.items() %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Order #{{ order_id }}</h5>
+                <small class="text-muted">For: {{ data.student_name }} at {{ data.school_name }} | Placed on: {{ data.order_info.created_at|datetime }}</small>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Qty</th>
+                            <th>Current Status</th>
+                            <th>Update Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in data['items'] %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td><span class="badge bg-info">{{ item.status.replace('_', ' ')|title }}</span></td>
+                            <td>
+                                <form action="{{ url_for('update_order_item_status', item_id=item.id) }}" method="POST">
+                                    <div class="input-group">
+                                        <select name="status" class="form-select">
+                                            <option value="pending_retailer_confirmation" {% if item.status == 'pending_retailer_confirmation' %}disabled{% endif %}>Pending</option>
+                                            <option value="processing">Processing</option>
+                                            <option value="shipped_to_school">Shipped to School</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-primary">Update</button>
+                                    </div>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>You have no incoming orders.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Pending Approvals</h2>
+
+    <!-- School Approvals -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Pending Schools</h5>
+        </div>
+        <div class="card-body">
+            {% if pending_schools %}
+            <table class="table table-dark table-hover">
+                <thead>
+                    <tr>
+                        <th>School Name</th>
+                        <th>Admin</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for school in pending_schools %}
+                    <tr>
+                        <td>{{ school.name }}</td>
+                        <td>{{ school.users[0].username if school.users else 'N/A' }}</td>
+                        <td>
+                            <a href="{{ url_for('admin_approve_school', school_id=school.id) }}" class="btn btn-sm btn-success">Approve School</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No pending schools for approval.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Retailer Approvals -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Pending Retailers</h5>
+        </div>
+        <div class="card-body">
+            {% if pending_retailers %}
+            <table class="table table-dark table-hover">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in pending_retailers %}
+                    <tr>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.email }}</td>
+                        <td>
+                            <a href="{{ url_for('approve_user', user_id=user.id) }}" class="btn btn-sm btn-success">Approve Retailer</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No pending retailers for approval.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -28,7 +28,7 @@
                             <td>{{ donation.donation_type|capitalize }}</td>
                             <td>
                                 {% if donation.donation_type == 'monetary' %}
-                                    ${{ "%.2f"|format(donation.amount) }}
+                                    Kes{{ "%.2f"|format(donation.amount) }}
                                 {% else %}
                                     {{ donation.description|truncate(30) }}
                                 {% endif %}

@@ -38,9 +38,13 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <a href="#" class="btn btn-sm btn-info">Edit</a>
-                                {% if user.role in ['retailer', 'school_admin'] and not user.is_approved %}
-                                    <a href="{{ url_for('approve_user', user_id=user.id) }}" class="btn btn-sm btn-success">Approve</a>
+                                <a href="{{ url_for('admin_edit_user', user_id=user.id) }}" class="btn btn-sm btn-info">Edit</a>
+
+                                {% if user.role in ['retailer', 'school_admin'] %}
+                                    <a href="{{ url_for('set_user_status', user_id=user.id, status='approve' if not user.is_approved else 'deny') }}"
+                                       class="btn btn-sm {{ 'btn-success' if not user.is_approved else 'btn-danger' }}">
+                                       {{ 'Approve' if not user.is_approved else 'Deny/Suspend' }}
+                                    </a>
                                 {% endif %}
                             </td>
                         </tr>

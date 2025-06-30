@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Manage Order #{{ order.id }}</h2>
+    <p>
+        <strong>Parent:</strong> {{ order.user.username }} | 
+        <strong>Student Beneficiary:</strong> {{ order.student.username if order.student else 'N/A' }}
+    </p>
+    <p><strong>School:</strong> {{ order.school.name }}</p>
+    <hr>
+    <form method="POST">
+        <table class="table table-dark table-striped">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Quantity</th>
+                    <th>Current Status</th>
+                    <th>New Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td><span class="badge bg-info">{{ item.status }}</span></td>
+                    <td>
+                        <select name="status_{{ item.id }}" class="form-select">
+                            <option value="Pending" {% if item.status == 'Pending' %}selected{% endif %}>Pending</option>
+                            <option value="Processing" {% if item.status == 'Processing' %}selected{% endif %}>Processing</option>
+                            <option value="Shipped to School" {% if item.status == 'Shipped to School' %}selected{% endif %}>Shipped to School</option>
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="submit" class="btn btn-primary mt-3">Update Order Statuses</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">My Donation History</h2>
+                </div>
+                <div class="card-body">
+                    {% if donations %}
+                        <div class="list-group">
+                            {% for donation in donations %}
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h5 class="mb-1">
+                                            Donation on {{ donation.created_at|datetime('medium') }}
+                                        </h5>
+                                        <span class="badge bg-info rounded-pill fs-6">{{ donation.status|capitalize }}</span>
+                                    </div>
+                                    <p class="mb-1">
+                                        <strong>Type:</strong> {{ donation.donation_type|capitalize }}
+                                    </p>
+                                    {% if donation.donation_type == 'monetary' %}
+                                        <p class="mb-1">
+                                            <strong>Amount:</strong> Kes{{ "%.2f"|format(donation.amount) }}
+                                        </p>
+                                    {% else %}
+                                        <p class="mb-1">
+                                            <strong>Description:</strong> {{ donation.description }}
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center p-4">
+                            <p class="lead">You have not made any donations yet.</p>
+                            <a href="{{ url_for('donate') }}" class="btn btn-primary">Make Your First Donation</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

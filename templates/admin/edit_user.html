@@ -3,38 +3,45 @@
 {% block content %}
 <div class="container">
     <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card">
+        <div class="col-md-8">
+            <!-- Edit User Details Card -->
+            <div class="card mb-4">
                 <div class="card-body">
                     <h2 class="card-title">Edit User: {{ user.username }}</h2>
-                    
-                    <form method="POST">
+                    <form method="POST" action="{{ url_for('admin_edit_user', user_id=user.id) }}">
                         <div class="mb-3">
                             <label class="form-label">Role</label>
                             <select class="form-select" name="role">
-                                {% for role in ['app_admin', 'school_admin', 'parent', 'student', 'retailer', 'donor'] %}
+                                {% for role in ['app_admin', 'parent', 'retailer', 'donor'] %}
                                 <option value="{{ role }}" {% if user.role == role %}selected{% endif %}>
-                                    {{ role|capitalize }}
+                                    {{ role|replace('_', ' ')|title }}
                                 </option>
                                 {% endfor %}
                             </select>
                         </div>
-                        
-                        {% if user.role in ['school_admin', 'retailer'] %}
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="is_approved" name="is_approved"
-                                   {% if user.is_approved %}checked{% endif %}>
-                            <label class="form-check-label" for="is_approved">Account Approved</label>
-                        </div>
-                        {% endif %}
-                        
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary">Save Changes</button>
-                            <a href="{{ url_for('admin_users') }}" class="btn btn-secondary mt-2">Cancel</a>
-                        </div>
+                        <button type="submit" class="btn btn-primary">Save Role</button>
                     </form>
                 </div>
             </div>
+
+            <!-- Reset Password Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>Reset Password</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin_reset_password', user_id=user.id) }}" onsubmit="return confirm('Are you sure you want to reset this user\'s password?');">
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password" required minlength="8">
+                            <div class="form-text">Enter a new password. The user will be notified of this change if notifications are set up.</div>
+                        </div>
+                        <button type="submit" class="btn btn-warning">Reset Password</button>
+                    </form>
+                </div>
+            </div>
+
+            <a href="{{ url_for('admin_users') }}" class="btn btn-secondary mt-3">Back to User List</a>
         </div>
     </div>
 </div>

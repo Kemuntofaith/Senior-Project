@@ -32,7 +32,7 @@
                     <ul class="list-group list-group-flush">
                         {% for order in activities.orders %}
                         <li class="list-group-item bg-dark text-white">
-                            #{{ order.id }} - ${{ "%.2f"|format(order.total_amount) }}
+                            #{{ order.id }} - Kes{{ "%.2f"|format(order.total_amount) }}
                             <small class="text-muted">{{ order.created_at|datetime }}</small>
                         </li>
                         {% endfor %}
@@ -52,7 +52,7 @@
                         <li class="list-group-item bg-dark text-white">
                             {{ donation.donation_type }} - 
                             {% if donation.donation_type == 'monetary' %}
-                                ${{ "%.2f"|format(donation.amount) }}
+                                Kes{{ "%.2f"|format(donation.amount) }}
                             {% else %}
                                 {{ donation.description|truncate(20) }}
                             {% endif %}

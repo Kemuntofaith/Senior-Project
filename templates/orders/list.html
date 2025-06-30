@@ -27,14 +27,28 @@
                             <td>{{ order.created_at.strftime('%Y-%m-%d') }}</td>
                             <td>{{ order.user.username }}</td>
                             <td>{{ order.school.name }}</td>
-                            <td>${{ "%.2f"|format(order.total_amount) }}</td>
+                            <td>Kes{{ "%.2f"|format(order.total_amount) }}</td>
                             <td>
                                 <span class="badge bg-{{ 'success' if order.status == 'delivered' else 'warning' }}">
                                     {{ order.status|capitalize }}
                                 </span>
                             </td>
                             <td>
-                                <a href="{{ url_for('order_detail', order_id=order.id) }}" class="btn btn-sm btn-info">View</a>
+                                <a href="{{ url_for('order_detail', order_id=order.id) }}" class="btn btn-info btn-sm">Details</a>
+
+                                {# Conditional link for Parents/Students #}
+                                {% if current_user.role in ['parent', 'student'] %}
+                                <a href="{{ url_for('order_tracking', order_id=order.id) }}" class="btn btn-warning btn-sm">Track</a>
+                                <a href="{{ url_for('order_receipt', order_id=order.id) }}" class="btn btn-secondary btn-sm">Receipt</a>
+                                
+                                {% endif %}
+                            
+                                {# ADD THIS: Conditional link for School Admins #}
+                                {% if current_user.role == 'school_admin' %}
+                                <a href="{{ url_for('school_confirm_delivery', order_id=order.id) }}" class="btn btn-success btn-sm">Confirm Delivery</a>
+                                {% endif %}
+
+    
                             </td>
                         </tr>
                         {% endfor %}
