@@ -55,16 +55,22 @@
                     <h5>Payment</h5>
                 </div>
                 <div class="card-body">
-                    <p>Wallet Balance: Kes{{ "%.2f"|format(current_user.wallet.balance) }}</p>
+                    {# First, check if the wallet exists at all. Default to 0 if it doesn't. #}
+                    {% set wallet_balance = current_user.wallet.balance if current_user.wallet else 0 %}
+                    
+                    <p>Wallet Balance: Kes{{ "%.2f"|format(wallet_balance) }}</p>
                     <p>Order Total: Kes{{ "%.2f"|format(total) }}</p>
                     <hr>
-                    {% if current_user.wallet.balance >= total %}
+                    
+                    {# Now, use the safe wallet_balance variable for comparison #}
+                    {% if wallet_balance >= total %}
                     <form method="POST">
                         <button type="submit" class="btn btn-success w-100">Pay with Wallet</button>
                     </form>
                     {% else %}
-                    <div class="alert alert-warning">
-                        Insufficient funds. Please <a href="{{ url_for('wallet_deposit') }}" class="alert-link">add money to your wallet</a>.
+                    <div class="alert alert-danger">
+                        You have insufficient funds in your wallet.
+                        <a href="{{ url_for('wallet_deposit') }}" class="alert-link">Click here to deposit funds.</a>
                     </div>
                     {% endif %}
                 </div>

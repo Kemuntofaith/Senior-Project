@@ -38,28 +38,40 @@
         </div>
     </div>
     
-    <div class="row">
-    {% for product in products %}
+<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-4">
+{% for product in products %}
     <div class="col">
+        {# The h-100 and conditional opacity style are preserved #}
         <div class="card h-100" {% if not product.is_allowed %} style="opacity: 0.5;" {% endif %}>
-            <div class="card-body">
+
+            {# The image container is added at the top of the card #}
+            <div class="product-image-container">
+                <img src="{{ url_for('static', filename='uploads/' + product.image_file) }}" alt="{{ product.name }}">
+            </div>
+
+            {# The card body now uses flexbox for better alignment #}
+            <div class="card-body d-flex flex-column">
                 <h5 class="card-title">{{ product.name }}</h5>
                 <p class="card-text">Kes{{ "%.2f"|format(product.price) }}</p>
-                
-                <form method="POST" class="add-to-cart-form">
-                    <input type="hidden" name="product_id" value="{{ product.id }}">
-                    <button type="submit" class="btn btn-primary" {% if not product.is_allowed %} disabled {% endif %}>
-                        Add to Cart
-                    </button>
-                    {% if not product.is_allowed %}
-                        <small class="d-block text-danger mt-2">Item not on school requirement list.</small>
-                    {% endif %}
-                </form>
+
+                {# The form is pushed to the bottom of the card #}
+                <div class="mt-auto">
+                    {# Your existing AJAX form is preserved perfectly #}
+                    <form method="POST" class="add-to-cart-form">
+                        <input type="hidden" name="product_id" value="{{ product.id }}">
+                        <button type="submit" class="btn btn-primary w-100" {% if not product.is_allowed %} disabled {% endif %}>
+                            Add to Cart
+                        </button>
+                        {% if not product.is_allowed %}
+                            <small class="d-block text-danger mt-2">Item not on school requirement list.</small>
+                        {% endif %}
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-    {% endfor %}
-    </div>
+{% endfor %}
+</div>
 </div>
 {% endblock %}
 

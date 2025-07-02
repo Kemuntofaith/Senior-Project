@@ -8,9 +8,11 @@ from functools import wraps
 import os
 import csv
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 from config import Config
 import random
+import secrets
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -22,6 +24,8 @@ if not db_name.endswith('.sqlite'): # Simple check to ensure we use a file for s
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_name}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static/uploads')
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # app.config['SECRET_KEY'] = os.urandom(24)
 
 db = SQLAlchemy(app)
@@ -41,6 +45,9 @@ class User(db.Model):
     is_approved = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+
+    reset_token = db.Column(db.String(100), unique=True)
+    reset_token_expiration = db.Column(db.DateTime)
     # Relationships
     school_id = db.Column(db.Integer, db.ForeignKey('school.id'))
     school = db.relationship('School', backref='users')
@@ -195,6 +202,7 @@ class Product(db.Model):
     category_id = db.Column(db.Integer, db.ForeignKey('product_category.id'), nullable=False)
     category = db.relationship('ProductCategory', backref='products')
     is_featured = db.Column(db.Boolean, default=False)
+    image_file = db.Column(db.String(120), nullable=True, default='default.jpg')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -583,6 +591,50 @@ def register():
     return render_template('register.html', 
                      all_roles=all_display_roles, 
                      allowed_roles=enabled_roles)
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            # Generate a secure, random token
+            token = secrets.token_urlsafe(20)
+            user.reset_token = token
+            user.reset_token_expiration = datetime.utcnow() + timedelta(hours=1) # Token is valid for 1 hour
+            db.session.commit()
+            
+            # IMPORTANT: We display the link on-screen to avoid email setup
+            reset_url = url_for('reset_with_token', token=token, _external=True)
+            flash('Password reset link generated. Please use the link below within the next hour.', 'info')
+            return render_template('auth/display_reset_link.html', reset_url=reset_url)
+        else:
+            flash('Email address not found.', 'error')
+            return redirect(url_for('forgot_password'))
+            
+    return render_template('auth/forgot_password.html')
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_with_token(token):
+    # Find the user by the token and check if it's expired
+    user = User.query.filter_by(reset_token=token).filter(User.reset_token_expiration > datetime.utcnow()).first()
+    
+    if not user:
+        flash('This password reset link is invalid or has expired.', 'error')
+        return redirect(url_for('login'))
+        
+    if request.method == 'POST':
+        password = request.form.get('password')
+        user.set_password(password)
+        # Invalidate the token after use
+        user.reset_token = None
+        user.reset_token_expiration = None
+        db.session.commit()
+        flash('Your password has been successfully reset. Please log in.', 'success')
+        return redirect(url_for('login'))
+        
+    return render_template('auth/reset_with_token.html', token=token)
 
 @app.route('/admin/approvals')
 @role_required(['app_admin'])
@@ -1169,7 +1221,8 @@ def manage_requirements():
 @role_required(['school_admin'])
 def edit_requirement(req_id):
     requirement = SchoolRequirement.query.get_or_404(req_id)
-    if requirement.school_id != current_user.school_id:
+    logged_in_user = User.query.get(session['user_id'])
+    if requirement.school_id != logged_in_user.school_id:
         flash('You do not have permission to edit this item.', 'error')
         return redirect(url_for('manage_requirements'))
 
@@ -1892,27 +1945,34 @@ def wallet_deposit():
         if amount <= 0:
             flash('Amount must be positive', 'error')
             return redirect(url_for('wallet_deposit'))
-        
+
         user = User.query.get(session['user_id'])
         wallet = Wallet.query.filter_by(user_id=user.id).first()
-        
+
         if not wallet:
-            wallet = Wallet(user_id=user.id, balance=0.0)
+            # If no wallet, create one
+            wallet = Wallet(user_id=user.id)
             db.session.add(wallet)
-        
+            # IMPORTANT: Flush the session to get the new wallet's ID
+            db.session.flush()
+
+        # Now that we are sure wallet exists and has an ID, proceed
         wallet.balance += amount
+        
         transaction = WalletTransaction(
-            wallet_id=wallet.id,
+            wallet_id=wallet.id, # wallet.id will now have a value
             amount=amount,
             transaction_type='deposit',
             reference='MANUAL_DEPOSIT'
         )
         db.session.add(transaction)
-        db.session.commit()
         
+        # Commit the entire transaction (new wallet, updated balance, new transaction)
+        db.session.commit()
+
         flash(f'Successfully deposited Kes{amount:.2f}', 'success')
         return redirect(url_for('wallet'))
-    
+
     return render_template('wallet/deposit.html')
 
 @app.route('/orders/<int:order_id>')
@@ -2257,6 +2317,18 @@ def retailer_products():
     products = Product.query.filter_by(retailer_id=retailer.id).all()
     return render_template('retailer/products.html', products=products)
 
+
+def save_product_image(image_file):
+    """Saves a product image and returns the unique filename."""
+    if image_file and image_file.filename != '':
+        filename = secure_filename(image_file.filename)
+        # Create a unique filename to prevent overwrites
+        unique_filename = secrets.token_hex(8) + "_" + filename
+        image_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        image_file.save(image_path)
+        return unique_filename
+    return None
+
 @app.route('/retailer/product/add', methods=['GET', 'POST'])
 @login_required
 @role_required(['retailer'])
@@ -2264,13 +2336,16 @@ def add_product():
     categories = ProductCategory.query.all()
     if request.method == 'POST':
         retailer = User.query.get(session['user_id']).get_retailer()
+        image_filename = save_product_image(request.files.get('product_image'))
         new_product = Product(
             retailer_id=retailer.id,
             name=request.form.get('name'),
             description=request.form.get('description'),
             price=float(request.form.get('price')),
             quantity=int(request.form.get('quantity')),
-            category_id=int(request.form.get('category_id'))
+            category_id=int(request.form.get('category_id')),
+            image_file=image_filename if image_filename else 'default.jpg'
+
         )
         db.session.add(new_product)
         db.session.commit()
@@ -2296,6 +2371,15 @@ def edit_product(product_id):
         product.price = float(request.form.get('price'))
         product.quantity = int(request.form.get('quantity'))
         product.category_id = int(request.form.get('category_id'))
+        image_file = request.files.get('product_image')
+        if image_file:
+            # Save the new image and update the filename
+            new_image_filename = save_product_image(image_file)
+            if new_image_filename:
+                # Optional: Delete the old image file to save space
+                # if product.image_file and product.image_file != 'default.jpg':
+                #     os.remove(os.path.join(app.config['UPLOAD_FOLDER'], product.image_file))
+                product.image_file = new_image_filename        
         db.session.commit()
         flash('Product updated successfully.', 'success')
         return redirect(url_for('retailer_products'))

@@ -85,6 +85,18 @@
             color: #aaa;
             margin-bottom: 0;
         }
+        .product-image-container {
+            width: 100%;
+            aspect-ratio: 1 / 1; /* Creates a perfect square */
+            overflow: hidden; /* Hides parts of image that don't fit */
+            margin-bottom: 1rem;
+        }
+        .product-image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Fills the container, cropping as needed */
+            object-position: center; /* Centers the image within the frame */
+        }
     </style>
 </head>
 <body>
