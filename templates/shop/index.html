@@ -46,7 +46,7 @@
                 <h5 class="card-title">{{ product.name }}</h5>
                 <p class="card-text">Kes{{ "%.2f"|format(product.price) }}</p>
                 
-                <form method="POST" action="{{ url_for('cart') }}">
+                <form method="POST" class="add-to-cart-form">
                     <input type="hidden" name="product_id" value="{{ product.id }}">
                     <button type="submit" class="btn btn-primary" {% if not product.is_allowed %} disabled {% endif %}>
                         Add to Cart
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
             event.preventDefault(); // Stop page reload
             
             const productId = form.querySelector('input[name=product_id]').value;
-            const quantity = form.querySelector('input[name=quantity]').value;
+            const quantity = 1;
             
             fetch("{{ url_for('api_add_to_cart') }}", {
                 method: 'POST',
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.success) {
                     const cartBadge = document.getElementById('cart-item-count-badge');
                     if (cartBadge) {
-                        cartBadge.textContent = data.cartItemCount;
+                        cartBadge.textContent = data.total_items; 
                         cartBadge.style.display = 'inline-block';
                     }
                 }

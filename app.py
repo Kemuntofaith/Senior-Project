@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import g, Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_login import current_user
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event, Engine
@@ -206,7 +206,19 @@ class Product(db.Model):
                                         .order_by(PriceComparison.price)\
                                         .first()
         return comparison.price if comparison else self.price
-    
+
+class Complaint(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    school_id = db.Column(db.Integer, db.ForeignKey('school.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    complaint_type = db.Column(db.String(50)) # e.g., 'Complaint', 'Suggestion'
+    description = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(50), default='New') # Statuses: New, In Progress, Resolved, Rejected
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    school = db.relationship('School')
+    student = db.relationship('User')
+
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -399,23 +411,49 @@ def role_required(roles):
         return decorated_function
     return decorator
 
-@app.context_processor
-def inject_current_user():
-    if 'user_id' in session:
-        # user = User.query.get(session['user_id'])
-        user = db.session.get(User, session['user_id'])
-        return {'current_user': user}
-    return {'current_user': None}
+@app.before_request
+def load_logged_in_user():
+    """If a user ID is in the session, load the user object from
+    the database and store it in `g.user` for the request."""
+    user_id = session.get('user_id')
+    if user_id is None:
+        g.user = None
+    else:
+        g.user = db.session.get(User, user_id)
 
 @app.context_processor
+def inject_user():
+    """Injects the user object into all templates."""
+    return dict(current_user=g.user)
+# @app.context_processor
+# def inject_current_user():
+#     if 'user_id' in session:
+#         # user = User.query.get(session['user_id'])
+#         user = db.session.get(User, session['user_id'])
+#         return {'current_user': user}
+#     return {'current_usewsxr': None}
+
+# @app.context_processor
+# def inject_cart_item_count():
+#     if 'user_id' in session and session['role'] in ['parent', 'student']:
+#         user = db.session.get(User, session['user_id'])
+#         # CORRECTED LINE: Use list index [0] to get the first cart.
+#         cart = user.carts[0] if user and user.carts else None
+#         if cart and cart.items:
+#             return {'cart_item_count': len(cart.items)}
+#     return {'cart_item_count': 0}
+@app.context_processor
 def inject_cart_item_count():
-    if 'user_id' in session and session['role'] in ['parent', 'student']:
-        user = db.session.get(User, session['user_id'])
-        # CORRECTED LINE: Use list index [0] to get the first cart.
-        cart = user.carts[0] if user.carts else None
-        if cart and cart.items:
-            return {'cart_item_count': len(cart.items)}
-    return {'cart_item_count': 0}
+    """Makes the total number of items in the cart available to all templates."""
+    if 'user_id' not in session or session.get('role') not in ['parent', 'student']:
+        return {'cart_item_count': 0}
+        
+    cart = Cart.query.filter_by(user_id=session['user_id']).first()
+    if not cart:
+        return {'cart_item_count': 0}
+    
+    count = db.session.query(db.func.sum(CartItem.quantity)).filter_by(cart_id=cart.id).scalar() or 0
+    return {'cart_item_count': count}
 
 @app.template_filter('datetime')
 def format_datetime(value, format='medium'):
@@ -601,6 +639,13 @@ def approve_retailer(retailer_id):
     flash('Retailer approved for your school', 'success')
     return redirect(url_for('approve_retailers'))
 
+@app.route('/school/complaints')
+@login_required
+@role_required(['school_admin'])
+def school_complaints():
+    complaints = Complaint.query.filter_by(school_id=g.user.school_id).order_by(Complaint.created_at.desc()).all()
+    return render_template('school_admin/complaints.html', complaints=complaints)
+
 @app.route('/admin/user/<int:user_id>/reset-password', methods=['POST'])
 @role_required(['app_admin'])
 def admin_reset_password(user_id):
@@ -646,6 +691,88 @@ def delete_category(cat_id):
         db.session.commit()
         flash('Category deleted.', 'success')
     return redirect(url_for('manage_categories'))
+
+@app.route('/admin/complaints')
+@login_required
+@role_required(['app_admin'])
+def admin_complaints():
+    school_filter_id = request.args.get('school_id', type=int)
+    query = Complaint.query
+
+    if school_filter_id:
+        query = query.filter_by(school_id=school_filter_id)
+        
+    complaints = query.order_by(Complaint.created_at.desc()).all()
+    schools = School.query.order_by(School.name).all()
+    return render_template('admin/complaints.html', complaints=complaints, schools=schools, selected_school=school_filter_id)
+
+@app.route('/complaints/new', methods=['GET', 'POST'])
+def new_complaint():
+    if request.method == 'POST':
+        school_id = request.form.get('school_id')
+        student_id = request.form.get('student_id')
+        complaint_type = request.form.get('complaint_type')
+        description = request.form.get('description')
+
+        if not all([school_id, student_id, complaint_type, description]):
+            flash('All fields are required.', 'danger')
+            return redirect(url_for('new_complaint'))
+
+        complaint = Complaint(
+            school_id=school_id,
+            student_id=student_id,
+            complaint_type=complaint_type,
+            description=description
+        )
+        db.session.add(complaint)
+        db.session.commit()
+
+        # Notify Admins
+        app_admins = User.query.filter_by(role='app_admin').all()
+        school_admin = User.query.filter_by(role='school_admin', school_id=school_id).first()
+        
+        # notification_message = f"New {complaint_type} from school ID {school_id}."
+        # if school_admin:
+        #     school_admin.add_notification('New Complaint/Suggestion', notification_message, 'complaint', complaint.id)
+        # for admin in app_admins:
+        #     admin.add_notification('New Complaint/Suggestion', notification_message, 'complaint', complaint.id)
+
+        flash('Thank you! Your feedback has been submitted.', 'success')
+        return redirect(url_for('home'))
+
+    schools = School.query.filter_by(is_approved=True).order_by(School.name).all()
+    return render_template('complaint_form.html', schools=schools)
+
+@app.route('/complaint/<int:complaint_id>/manage', methods=['GET', 'POST'])
+@login_required
+@role_required(['app_admin', 'school_admin'])
+def complaint_detail(complaint_id):
+    complaint = Complaint.query.get_or_404(complaint_id)
+
+    # Security Check: A school admin can only view complaints for their own school.
+    if g.user.role == 'school_admin' and complaint.school_id != g.user.school_id:
+        flash("You do not have permission to view this complaint.", "danger")
+        return redirect(url_for('school_complaints'))
+
+    if request.method == 'POST':
+        # Handle Status Update
+        if 'update_status' in request.form:
+            new_status = request.form.get('status')
+            if new_status:
+                complaint.status = new_status
+                db.session.commit()
+                flash(f'Complaint #{complaint.id} status updated to "{new_status}".', 'success')
+
+        # Handle Deletion (Only for App Admins)
+        if 'delete_complaint' in request.form and g.user.role == 'app_admin':
+            db.session.delete(complaint)
+            db.session.commit()
+            flash(f'Complaint #{complaint.id} has been deleted.', 'success')
+            return redirect(url_for('admin_complaints'))
+            
+        return redirect(url_for('complaint_detail', complaint_id=complaint.id))
+    
+    return render_template('admin/complaint_detail.html', complaint=complaint)
 
 # ====================== PARENT STUDENT MANAGEMENT ======================
 @app.route('/parent/manage-students')
@@ -805,13 +932,12 @@ def admin_reports():
     active_orders = Order.query.filter(Order.status.in_(['paid', 'shipped'])).count()
     recent_donations = Donation.query.order_by(Donation.created_at.desc()).limit(5).all()
     # FIX THE COUNTER HERE
-    approved_retailers_count = Retailer.query.filter_by(is_approved_by_admin=True).count()
-    
+    approved_retailers = Retailer.query.filter_by(is_approved_by_admin=True).count()
     return render_template('admin/reports.html',
                          schools=schools,
                          active_orders=active_orders,
                          recent_donations=recent_donations,
-                         approved_retailers_count=approved_retailers_count) # Pass the correct variable
+                         retailers=approved_retailers) # Pass the correct variable
 
 @app.route('/admin/user/<int:user_id>/set-status/<status>')
 @role_required(['app_admin'])
@@ -972,6 +1098,28 @@ def upload_students_csv():
         flash(f'An error occurred during CSV processing: {e}', 'danger')
         
     return redirect(url_for('manage_students'))
+
+@app.route('/api/search-students')
+def api_search_students():
+    """API endpoint to search for students within a specific school."""
+    school_id = request.args.get('school_id', type=int)
+    query = request.args.get('query', '')
+
+    # Return empty list if the required parameters are missing
+    if not school_id or not query:
+        return jsonify({'students': []})
+
+    # Search for students whose username contains the query string (case-insensitive)
+    # Limit the results to a reasonable number, like 10.
+    students = User.query.filter(
+        User.school_id == school_id,
+        User.role.in_(['student', 'parent']),  # Ensure we only get students/parents
+        User.username.ilike(f'%{query}%')
+    ).limit(10).all()
+
+    # Format the results into a clean JSON list
+    student_list = [{'id': student.id, 'username': student.username} for student in students]
+    return jsonify({'students': student_list})
 
 @app.route('/school/order/<int:order_id>/confirm', methods=['GET', 'POST'])
 @login_required
@@ -1656,7 +1804,7 @@ def api_add_to_cart():
         if not cart:
             cart = Cart(user_id=user.id)
             db.session.add(cart)
-
+            db.session.flush()
         cart_item = CartItem.query.filter_by(cart_id=cart.id, product_id=product.id).first()
         if cart_item:
             cart_item.quantity += quantity
@@ -1667,12 +1815,13 @@ def api_add_to_cart():
         db.session.commit()
         
         # Calculate total number of unique items in cart
-        cart_item_count = len(cart.items)
+        total_items = db.session.query(db.func.sum(CartItem.quantity)).filter_by(cart_id=cart.id).scalar() or 0
 
         return jsonify({
             'success': True, 
-            'message': f'Added {quantity} x {product.name} to cart.',
-            'cartItemCount': cart_item_count
+            'message': f"Added {product.name} to cart.",
+            # Use a clear key and the new total_items variable
+            'total_items': total_items 
         })
 
     except Exception as e:

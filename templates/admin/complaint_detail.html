@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Complaint #{{ complaint.id }} Details</h2>
+
+    <div class="card">
+        <div class="card-header">
+            <h4>Complaint Information</h4>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">School:</dt>
+                <dd class="col-sm-9">{{ complaint.school.name }}</dd>
+
+                <dt class="col-sm-3">Submitted By:</dt>
+                <dd class="col-sm-9">{{ complaint.student.username }}</dd>
+
+                <dt class="col-sm-3">Date Submitted:</dt>
+                <dd class="col-sm-9">{{ complaint.created_at|datetime }}</dd>
+                
+                <dt class="col-sm-3">Type:</dt>
+                <dd class="col-sm-9">{{ complaint.complaint_type }}</dd>
+                
+                <dt class="col-sm-3">Current Status:</dt>
+                <dd class="col-sm-9"><span class="badge bg-info">{{ complaint.status }}</span></dd>
+            </dl>
+            <hr>
+            <h5>Description:</h5>
+            <p>{{ complaint.description }}</p>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Manage Complaint</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="mb-3">
+                    <label for="status" class="form-label">Update Status</label>
+                    <select class="form-select" name="status" id="status">
+                        <option value="New" {% if complaint.status == 'New' %}selected{% endif %}>New</option>
+                        <option value="In Progress" {% if complaint.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                        <option value="Resolved" {% if complaint.status == 'Resolved' %}selected{% endif %}>Resolved</option>
+                        <option value="Rejected" {% if complaint.status == 'Rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
+                </div>
+                <button type="submit" name="update_status" class="btn btn-primary">Update Status</button>
+
+                {# Delete button only shows for App Admins #}
+                {% if current_user.role == 'app_admin' %}
+                    <button type="submit" name="delete_complaint" class="btn btn-danger float-end"
+                            onclick="return confirm('Are you sure you want to permanently delete this complaint? This action cannot be undone.')">
+                        Delete Complaint
+                    </button>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

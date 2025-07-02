@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Manage All Complaints & Suggestions</h2>
+
+    <!-- Filter Form -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <label for="school_id" class="form-label">Filter by School:</label>
+                </div>
+                <div class="col-md-5">
+                    <select name="school_id" id="school_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Schools</option>
+                        {% for school in schools %}
+                            <option value="{{ school.id }}" {% if school.id == selected_school %}selected{% endif %}>
+                                {{ school.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <a href="{{ url_for('admin_complaints') }}" class="btn btn-secondary">Clear Filter</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Complaints Table -->
+    <div class="card">
+        <div class="card-body">
+            {% if complaints %}
+            <div class="table-responsive">
+                <table class="table table-dark table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>School</th>
+                            <th>Submitted By</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for complaint in complaints %}
+                        <tr>
+                            <td>{{ complaint.id }}</td>
+                            <td>{{ complaint.school.name }}</td>
+                            <td>{{ complaint.student.username }}</td>
+                            <td>{{ complaint.complaint_type }}</td>
+                            <td>{{ complaint.description|truncate(60) }}</td>
+                            <td>{{ complaint.created_at|datetime }}</td>
+                            <td><span class="badge bg-info">{{ complaint.status }}</span></td>
+                            <td> 
+                                <a href="{{ url_for('complaint_detail', complaint_id=complaint.id) }}" class="btn btn-sm btn-primary">Details</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                No complaints found for the selected filter.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

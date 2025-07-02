@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Submit a Complaint or Suggestion</h2>
+    <p>This form is available to all students to provide feedback directly to school and system administrators.</p>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="school_id" class="form-label">Select Your School</label>
+            <select class="form-select" id="school_id" name="school_id" required>
+                <option selected disabled value="">Choose...</option>
+                {% for school in schools %}
+                <option value="{{ school.id }}">{{ school.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="student_search" class="form-label">Search for Your Name</label>
+            {# This is the visible search box the user types in. `autocomplete="off"` is important. #}
+            <input type="text" class="form-control" id="student_search" placeholder="Start typing your name..." autocomplete="off" disabled>
+            
+            {# This hidden input will store the selected student's ID for form submission. #}
+            <input type="hidden" id="student_id" name="student_id" required>
+
+            {# This div will be populated with search results by our JavaScript. #}
+            <div id="student-search-results" class="list-group mt-1"></div>
+        </div>
+        <div class="mb-3">
+            <label for="complaint_type" class="form-label">Type of Feedback</label>
+            <select class="form-select" id="complaint_type" name="complaint_type" required>
+                <option value="Complaint">Complaint</option>
+                <option value="Suggestion">Suggestion</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea class="form-control" id="description" name="description" rows="5" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit Feedback</button>
+    </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get references to all the elements we need to work with
+    const schoolSelect = document.getElementById('school_id');
+    const studentSearchInput = document.getElementById('student_search');
+    const studentIdInput = document.getElementById('student_id'); // The hidden input
+    const resultsContainer = document.getElementById('student-search-results');
+    let debounceTimer;
+
+    // 1. When a school is selected, enable the search box
+    schoolSelect.addEventListener('change', function() {
+        studentSearchInput.disabled = !this.value;
+        studentSearchInput.value = ''; // Clear previous search
+        studentIdInput.value = '';   // Clear previous selection
+        resultsContainer.innerHTML = ''; // Clear previous results
+    });
+
+    // 2. When the user types in the search box
+    studentSearchInput.addEventListener('input', function() {
+        const query = this.value;
+        const schoolId = schoolSelect.value;
+        
+        // Clear previous results and cancel any pending API calls
+        resultsContainer.innerHTML = '';
+        clearTimeout(debounceTimer);
+
+        // Don't search if the query is too short or no school is selected
+        if (query.length < 2 || !schoolId) {
+            return;
+        }
+
+        // Use a debounce timer to avoid sending a request on every single keystroke
+        debounceTimer = setTimeout(() => {
+            fetch(`/api/search-students?school_id=${schoolId}&query=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Create and display a clickable link for each result
+                    data.students.forEach(student => {
+                        const resultItem = document.createElement('a');
+                        resultItem.href = '#';
+                        resultItem.className = 'list-group-item list-group-item-action list-group-item-dark';
+                        resultItem.textContent = student.username;
+                        resultItem.dataset.id = student.id; // Store the ID on the element
+                        
+                        // 3. When a user clicks a result
+                        resultItem.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            // Set the visible search box to the selected name
+                            studentSearchInput.value = this.textContent;
+                            // Set the hidden input to the selected ID
+                            studentIdInput.value = this.dataset.id;
+                            // Hide the results container
+                            resultsContainer.innerHTML = '';
+                        });
+
+                        resultsContainer.appendChild(resultItem);
+                    });
+                });
+        }, 300); // 300ms delay
+    });
+});
+</script>
+{% endblock %}
