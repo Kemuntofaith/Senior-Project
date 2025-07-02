@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Edit School Requirement</h2>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="item_name" class="form-label">Item Name</label>
+                            <input type="text" class="form-control" name="item_name" value="{{ requirement.item_name }}" required>
+                        </div>
+
+                        {# ADDED: Description Field #}
+                        <div class="mb-3">
+                            <label for="item_description" class="form-label">Description</label>
+                            <textarea class="form-control" name="item_description" rows="3">{{ requirement.item_description or '' }}</textarea>
+                        </div>
+
+                        <div class="row">
+                            {# ADDED: Quantity Field #}
+                            <div class="col-md-6 mb-3">
+                                <label for="quantity_required" class="form-label">Quantity Required</label>
+                                <input type="number" class="form-control" name="quantity_required" min="0" value="{{ requirement.quantity_required or '' }}">
+                                <small class="form-text text-muted">Leave blank for no quantity limit.</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="category" class="form-label">Category</label>
+                                <select class="form-select" id="category" name="category">
+                                    <option value="">No Category</option>
+                                    {# Loop through the list of category names #}
+                                    {% for cat_name in categories %}
+                                        {# Check if the category name in the loop matches the requirement's category #}
+                                        <option value="{{ cat_name }}" {% if cat_name == requirement.category %}selected{% endif %}>
+                                            {{ cat_name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="is_allowed" id="is_allowed" {% if requirement.is_allowed %}checked{% endif %}>
+                            <label class="form-check-label" for="is_allowed">
+                                This item is allowed for purchase.
+                            </label>
+                            <small class="d-block text-muted">(Uncheck to restrict this item)</small>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('manage_requirements') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

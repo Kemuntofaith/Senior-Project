@@ -1218,25 +1218,40 @@ def manage_requirements():
     return render_template('school/requirements.html', requirements=school.requirements, categories=categories)
 
 @app.route('/school/requirements/edit/<int:req_id>', methods=['GET', 'POST'])
+@login_required
 @role_required(['school_admin'])
 def edit_requirement(req_id):
+    # Fetch the requirement and ensure it belongs to the school admin's school
     requirement = SchoolRequirement.query.get_or_404(req_id)
     logged_in_user = User.query.get(session['user_id'])
     if requirement.school_id != logged_in_user.school_id:
-        flash('You do not have permission to edit this item.', 'error')
+        flash('You do not have permission to edit this requirement.', 'error')
         return redirect(url_for('manage_requirements'))
 
     if request.method == 'POST':
+        # --- START OF UPDATE LOGIC ---
+        # Update all fields from the form data
         requirement.item_name = request.form.get('item_name')
-        requirement.item_description = request.form.get('description')
-        requirement.quantity_required = request.form.get('quantity')
-        requirement.is_allowed = request.form.get('is_allowed') == 'on' # Checkbox logic
+        requirement.item_description = request.form.get('item_description')
         requirement.category = request.form.get('category')
+        
+        # Handle the integer field safely
+        quantity_str = request.form.get('quantity_required')
+        requirement.quantity_required = int(quantity_str) if quantity_str.isdigit() else None
+        
+        # Handle the checkbox (it only exists in the form if it was checked)
+        requirement.is_allowed = 'is_allowed' in request.form
+        
         db.session.commit()
-        flash('Requirement updated successfully!', 'success')
+        flash(f'Requirement for "{requirement.item_name}" has been updated.', 'success')
         return redirect(url_for('manage_requirements'))
+        # --- END OF UPDATE LOGIC ---
+    categories_query = db.session.query(SchoolRequirement.category).filter(SchoolRequirement.category != None).distinct().order_by(SchoolRequirement.category)
+    # Extract the names from the query result into a simple list
+    categories = [cat[0] for cat in categories_query.all()]
 
-    return render_template('school/edit_requirement.html', requirement=requirement)
+    # For a GET request, just show the form, pre-filled with data
+    return render_template('school_admin/edit_requirement.html', requirement=requirement, categories=categories)
 
 @app.route('/school/requirements/add', methods=['POST'])
 @role_required(['school_admin'])
